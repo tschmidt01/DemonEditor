@@ -143,9 +143,10 @@ class SatellitesDialog:
     @run_idle
     def append_data(self, model, satellites):
         for name, flags, pos, transponders in satellites:
-            parent = model.append(None, [name, *self._aggr, flags, pos])
-            for transponder in transponders:
-                model.append(parent, ["Transponder:", *transponder, None, None])
+            pass
+            # parent = model.append(None, [name, *self._aggr, flags, pos])
+            # for transponder in transponders:
+            #     model.append(parent, ["Transponder:", *transponder, None, None])
 
     def on_add(self, view):
         """ Common adding """
@@ -185,7 +186,7 @@ class SatellitesDialog:
                 model.set(edited_itr, {0: sat.name, 10: sat.flags, 11: sat.position})
             else:
                 index = self.get_sat_position_index(sat.position, model)
-                model.insert(None, index, [sat.name, *self._aggr, sat.flags, sat.position])
+                # model.insert(None, index, [sat.name, *self._aggr, sat.flags, sat.position])
                 scroll_to(index, view)
 
     def on_transponder(self, transponder=None, edited_itr=None):
@@ -210,7 +211,7 @@ class SatellitesDialog:
                                        4: tr.fec_inner, 5: tr.system, 6: tr.modulation,
                                        7: tr.pls_mode, 8: tr.pls_code, 9: tr.is_id})
             else:
-                row = ["Transponder:", *tr, None, None]
+                # row = ["Transponder:", *tr, None, None]
                 model, paths = view.get_selection().get_selected_rows()
                 itr = model.get_iter(paths[0])
                 view.expand_row(paths[0], 0)
@@ -226,13 +227,13 @@ class SatellitesDialog:
                     if freq <= cur_freq:
                         path = model.get_path(tr_itr)
                         index = path.get_indices()[1]
-                        model.insert(model.iter_parent(tr_itr), index, row)
+                        # model.insert(model.iter_parent(tr_itr), index, row)
                         scroll_to(path, view)
                         break
                     else:
                         tr_itr = model.iter_next(tr_itr)
                 else:
-                    itr = model.append(itr, row)
+                    # itr = model.append(itr, row)
                     scroll_to(model.get_path(itr), view)
 
     def get_sat_position_index(self, pos, model):

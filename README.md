@@ -1,5 +1,5 @@
 # DemonEditor
-Enigma2 channel and satellites list editor for GNU/Linux.                                                                            
+Enigma2 channel and satellites list editor for MS Windows(experimental).                                                                            
 Focused on the convenience of working in lists from the keyboard.
 The mouse is also fully supported (Drag and Drop etc)
 
@@ -14,10 +14,5 @@ Ctrl + L - parental lock.
 Ctrl + H - hide/skip.                                                                                                                 
 
 Ability to import IPTV into bouquet from m3u files!                                                                                   
-
-Tests  only on OpenPLi based image with  GM 990 Spark Reloaded receiver                                                               
-in my preferred linux distro (Last Linux Mint 18.* - MATE 64-bit)!
-
-Minimum requirements: Python >= 3.5.2 and GTK+ 3 with  PyGObject bindings.
 
 Terrestrial and cable channels at the moment are not supported!

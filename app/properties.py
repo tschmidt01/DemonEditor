@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 
-CONFIG_PATH = str(Path.home()) + "/.config/demon-editor/"
+CONFIG_PATH = "config/"
 CONFIG_FILE = CONFIG_PATH + "config.json"
 DATA_PATH = "data/"
 
