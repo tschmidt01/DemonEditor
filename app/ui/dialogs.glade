@@ -57,11 +57,16 @@ dmitry.v.yefremov@gmail.com
       <object class="GtkBox" id="download_dialog_vbox">
         <property name="width_request">320</property>
         <property name="can_focus">False</property>
+        <property name="margin_left">2</property>
+        <property name="margin_right">2</property>
+        <property name="margin_top">2</property>
+        <property name="margin_bottom">5</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="doawload_dialog_action_area">
             <property name="can_focus">False</property>
+            <property name="margin_top">2</property>
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="cancel_download_dialog_button">
@@ -405,6 +410,8 @@ dmitry.v.yefremov@gmail.com
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="messagedialog-action_area8">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_bottom">5</property>
             <property name="layout_style">end</property>
           </object>
           <packing>
@@ -433,6 +440,9 @@ dmitry.v.yefremov@gmail.com
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="dialog-action_area2">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_top">2</property>
+            <property name="margin_bottom">5</property>
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="button3">
@@ -586,6 +596,10 @@ dmitry.v.yefremov@gmail.com
     <child internal-child="vbox">
       <object class="GtkBox" id="question_dialog_vbox">
         <property name="can_focus">False</property>
+        <property name="margin_left">5</property>
+        <property name="margin_right">5</property>
+        <property name="margin_top">5</property>
+        <property name="margin_bottom">5</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
@@ -613,7 +627,10 @@ dmitry.v.yefremov@gmail.com
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox3">
         <property name="can_focus">False</property>
+        <property name="margin_left">2</property>
+        <property name="margin_right">2</property>
         <property name="margin_top">5</property>
+        <property name="margin_bottom">5</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
@@ -733,7 +750,7 @@ dmitry.v.yefremov@gmail.com
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="text" translatable="yes">root</property>
-                <property name="primary_icon_name">emblem-personal</property>
+                <property name="primary_icon_name">avatar-default</property>
                 <property name="primary_icon_activatable">False</property>
               </object>
               <packing>
@@ -748,7 +765,7 @@ dmitry.v.yefremov@gmail.com
                 <property name="visibility">False</property>
                 <property name="invisible_char">●</property>
                 <property name="text" translatable="yes">root</property>
-                <property name="primary_icon_name">emblem-nowrite</property>
+                <property name="primary_icon_name">dialog-password</property>
                 <property name="primary_icon_activatable">False</property>
                 <property name="input_purpose">password</property>
               </object>
