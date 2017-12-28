@@ -35,7 +35,8 @@ def insert_marker(view, bouquets, selected_bouquet, channels, parent_window):
     s_type = BqServiceType.MARKER.name
     model, paths = view.get_selection().get_selected_rows()
     itr = model.insert_before(model.get_iter(paths[0]), (None, None, response, None, None, s_type, None, fav_id))
-    # channels[fav_id] = Channel(None, None, None, response, None, None, None, s_type, *[None] * 7, max_num, fav_id, None)
+    channels[fav_id] = Channel(None, None, None, response, None, None, None, s_type, None, None, None, None,
+                               None, None, None, max_num, fav_id, None)
     bouquets[selected_bouquet].insert(model.get_path(itr)[0], fav_id)
 
 
@@ -53,7 +54,9 @@ def edit_marker(view, bouquets, selected_bouquet, channels, parent_window):
     old_ch = channels.pop(fav_id, None)
     new_fav_id = "{}::{}\n#DESCRIPTION {}\n".format(fav_id.split("::")[0], response, response)
     model.set(itr, {2: response, 7: new_fav_id})
-#    channels[new_fav_id] = Channel(*old_ch[0:3], response, *old_ch[4:15], old_ch.data_id, new_fav_id, None)
+    channels[new_fav_id] = Channel(old_ch[0], old_ch[1], old_ch[2], response, old_ch[4], old_ch[5], old_ch[6], old_ch[7],
+                                   old_ch[8], old_ch[9], old_ch[10], old_ch[11], old_ch[12], old_ch[13], old_ch[14],
+                                   old_ch.data_id, new_fav_id, None)
     bq_services.pop(index)
     bq_services.insert(index, new_fav_id)
 
@@ -135,8 +138,8 @@ def edit(view, parent_window, target, fav_view=None, service_view=None, channels
                     break
 
     old_ch = channels.get(f_id, None)
-    # if old_ch:
-    #     channels[f_id] = Channel(*old_ch[0:3], channel_name, *old_ch[4:])
+    if old_ch:
+        channels[f_id] = Channel(old_ch[0], old_ch[1], old_ch[2], channel_name, *old_ch[4:])
 
 
 # ***************** Flags *******************#
@@ -179,7 +182,8 @@ def set_lock(blacklist, channels, model, paths, target, services_model):
             bq_id = to_bouquet_id(channel)
             blacklist.discard(bq_id) if locked else blacklist.add(bq_id)
             model.set_value(itr, col_num, None if locked else LOCKED_ICON)
-            # channels[fav_id] = Channel(*channel[:4], None if locked else LOCKED_ICON, *channel[5:])
+            channels[fav_id] = Channel(channel[0], channel[1], channel[2], channel[3],
+                                       None if locked else LOCKED_ICON, *channel[5:])
             ids.append(fav_id)
 
     if target is ViewTarget.FAV and ids:
@@ -197,13 +201,13 @@ def set_hide(channels, model, paths, target):
     for path in paths:
         itr = model.get_iter(path)
         model.set_value(itr, col_num, None if hide else HIDE_ICON)
-        # flags = [*model.get_value(itr, 0).split(",")]
+        flags = model.get_value(itr, 0).split(",")
         index, flag = None, None
-        # for i, fl in enumerate(flags):
-        #     if fl.startswith("f:"):
-        #         index = i
-        #         flag = fl
-        #         break
+        for i, fl in enumerate(flags):
+            if fl.startswith("f:"):
+                index = i
+                flag = fl
+                break
 
         value = int(flag[2:]) if flag else 0
 
@@ -217,16 +221,16 @@ def set_hide(channels, model, paths, target):
             value -= FLAG.HIDE.value
 
         value = "f:{}".format(value) if value > 10 else "f:0{}".format(value)
-        # if index is not None:
-        #     flags[index] = value
-        # else:
-        #     flags.append(value)
+        if index is not None:
+            flags[index] = value
+        else:
+            flags.append(value)
 
-        # model.set_value(itr, 0, (",".join(reversed(sorted(flags)))))
+        model.set_value(itr, 0, (",".join(reversed(sorted(flags)))))
         fav_id = model.get_value(itr, 16)
-        channel = channels.get(fav_id, None)
-        # if channel:
-        #     channels[fav_id] = Channel(*channel[:5], None if hide else HIDE_ICON, *channel[6:])
+        ch = channels.get(fav_id, None)
+        if ch:
+            channels[fav_id] = Channel(ch[0], ch[1], ch[2], ch[3], ch[4], None if hide else HIDE_ICON, *ch[6:])
 
 
 def has_locked_hide(model, paths, col_num):

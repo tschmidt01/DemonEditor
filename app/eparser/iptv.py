@@ -3,8 +3,7 @@ from . import Channel
 
 
 def parse_m3u(path):
-    with open(path) as file:
-        aggr = [None] * 8
+    with open(path, encoding="utf-8") as file:
         channels = []
         count = 0
         name = None
@@ -16,7 +15,8 @@ def parse_m3u(path):
                 count = 0
                 fav_id = " 1:0:1:0:0:0:0:0:0:0:{}:{}\n#DESCRIPTION: {}\n".format(
                     line.strip().replace(":", "%3a"), name, name, None)
-                # channels.append(Channel(*aggr[0:3], name, *aggr[0:3], BqServiceType.IPTV.name, *aggr, fav_id, None))
+                channels.append(Channel(None, None, None, name,  None, None, None, BqServiceType.IPTV.name,
+                                        None, None, None, None, None, None, None, None, fav_id, None))
 
     return channels
 

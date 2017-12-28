@@ -34,7 +34,7 @@ def write_bouquets(path, bouquets, bouquets_services):
             line.append(srv_line.format(bq.name, bq.type))
             write_bouquet(path, bq.name, bq.type, bq.services)
 
-        with open(path + "bouquets.{}".format(bqs.type), "w") as file:
+        with open(path + "bouquets.{}".format(bqs.type), "w", encoding="utf-8") as file:
             file.writelines(line)
 
 
@@ -50,7 +50,7 @@ def write_bouquet(path, name, bq_type, channels):
         else:
             bouquet.append("#SERVICE {}\n".format(to_bouquet_id(ch)))
 
-    with open(path + "userbouquet.{}.{}".format(name, bq_type), "w") as file:
+    with open(path + "userbouquet.{}.{}".format(name, bq_type), "w", encoding="utf-8") as file:
         file.writelines(bouquet)
 
 
@@ -70,7 +70,7 @@ def to_bouquet_id(ch):
 
 def get_bouquet(path, name, bq_type):
     """ Parsing services ids from bouquet file """
-    with open(path + "userbouquet.{}.{}".format(name, bq_type)) as file:
+    with open(path + "userbouquet.{}.{}".format(name, bq_type), encoding="utf-8") as file:
         chs_list = file.read()
         services = []
         for ch in list(filter(lambda x: len(x) > 1, chs_list.split("#SERVICE")[1:])):  # filtering ['']
@@ -87,7 +87,7 @@ def get_bouquet(path, name, bq_type):
 
 
 def parse_bouquets(path, bq_name, bq_type):
-    with open(path + bq_name) as file:
+    with open(path + bq_name, encoding="utf-8") as file:
         lines = file.readlines()
         bouquets = None
         nm_sep = "#NAME"

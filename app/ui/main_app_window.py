@@ -167,8 +167,8 @@ class MainAppWindow:
     def on_copy(self, view):
         model, paths = view.get_selection().get_selected_rows()
         itrs = [model.get_iter(path) for path in paths]
-        # rows = [(0, *model.get(in_itr, 2, 3, 4, 5, 7, 14, 16)) for in_itr in itrs]
-        # self.__rows_buffer.extend(rows)
+        rows = [(0,) + model.get(in_itr, 2, 3, 4, 5, 7, 14, 16) for in_itr in itrs]
+        self.__rows_buffer.extend(rows)
 
     def on_paste(self, view):
         selection = view.get_selection()
@@ -463,17 +463,15 @@ class MainAppWindow:
                 name, bt_type = bt.name, bt.type
                 self.__bouquets_model.append(parent, [name, bt_type])
                 services = []
-                agr = [None] * 7
                 for srv in bt.services:
                     fav_id = srv.data
                     # IPTV and MARKER services
                     s_type = srv.type
-                    # if s_type is BqServiceType.MARKER:
-                    #     self.__channels[fav_id] = Channel(*agr[0:3], srv.name, *agr[0:3],
-                    #                                       s_type.name, *agr, srv.num, fav_id, None)
-                    # elif s_type is BqServiceType.IPTV:
-                    #     self.__channels[fav_id] = Channel(*agr[0:3], srv.name, *agr[0:3],
-                    #                                       srv.type.name, *agr, srv.num, fav_id, None)
+                    if s_type is BqServiceType.MARKER or s_type is BqServiceType.IPTV:
+                        self.__channels[fav_id] = Channel(None, None, None, srv.name, None, None, None, s_type.name,
+                                                          None, None, None, None, None, None, None, srv.num, fav_id,
+                                                          None)
+
                     services.append(fav_id)
                 self.__bouquets["{}:{}".format(name, bt_type)] = services
 
@@ -511,8 +509,10 @@ class MainAppWindow:
                     favs = self.__bouquets["{}:{}".format(bq_name, bq_type)]
                     bq = Bouquet(bq_name, bq_type, [self.__channels.get(f_id, None) for f_id in favs])
                     bqs.append(bq)
-                # bqs = Bouquets(*model.get(itr, 0, 1), bqs)
-                # bouquets.append(bqs)
+
+                bqs_name, bqs_type = model.get(itr, 0, 1)
+                bqs = Bouquets(bqs_name, bqs_type, bqs)
+                bouquets.append(bqs)
 
         # Getting bouquets
         self.__bouquets_view.get_model().foreach(parse_bouquets)
@@ -577,11 +577,14 @@ class MainAppWindow:
 
         return "{}:{}".format(*model.get(model.get_iter(path), 0, 1))
 
-    @run_idle
     def delete_selection(self, view, *args):
         """ Used for clear selection on given view(s) """
-        # for v in [view, *args]:
-        #     v.get_selection().unselect_all()
+        views = [view]
+        if args is not None:
+            for arg in args:
+                views.append(arg)
+        for v in views:
+            v.get_selection().unselect_all()
 
     def on_preferences(self, item):
         show_settings_dialog(self.__main_window, self.__options)

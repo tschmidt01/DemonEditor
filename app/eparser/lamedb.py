@@ -45,7 +45,7 @@ def write_channels(path, channels):
     lines.extend(services_lines)
     lines.append("end\nFile was created in DemonEditor.\n....Enjoy watching!....\n")
 
-    with open(path + _FILE_NAME, "w") as file:
+    with open(path + _FILE_NAME, "w", encoding="utf-8") as file:
         file.writelines(lines)
 
 
