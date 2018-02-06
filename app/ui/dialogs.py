@@ -25,11 +25,12 @@ def show_dialog(dialog_type: DialogType, transient, text=None, options=None, act
             dialog.set_action(action_type)
         if file_filter is not None:
             dialog.add_filter(file_filter)
-        dialog.set_current_folder(options["data_dir_path"])
+
+        path = options.get("data_dir_path")
+        dialog.set_current_folder(path)
 
         response = dialog.run()
         if response == -12:  # -12 for fix assertion 'gtk_widget_get_can_default (widget)' failed
-            path = options["data_dir_path"]
             if dialog.get_filename():
                 path = dialog.get_filename()
                 if action_type is not Gtk.FileChooserAction.OPEN:
@@ -55,6 +56,17 @@ def show_dialog(dialog_type: DialogType, transient, text=None, options=None, act
     dialog.destroy()
 
     return response
+
+
+def get_chooser_dialog(transient, options, pattern, name):
+    file_filter = Gtk.FileFilter()
+    file_filter.add_pattern(pattern)
+    file_filter.set_name(name)
+    return show_dialog(dialog_type=DialogType.CHOOSER,
+                       transient=transient,
+                       options=options,
+                       action_type=Gtk.FileChooserAction.OPEN,
+                       file_filter=file_filter)
 
 
 if __name__ == "__main__":

@@ -3,42 +3,35 @@
       Currently implemented only for satellite channels!!!
      Description of format taken from here: http://www.satsupreme.com/showthread.php/194074-Lamedb-format-explained
 """
-from collections import namedtuple
-
 from app.commons import log
-from app.eparser.__constants import POLARIZATION, SYSTEM, FEC, SERVICE_TYPE, FLAG
 from app.ui import CODED_ICON, LOCKED_ICON, HIDE_ICON
 from .blacklist import get_blacklist
+from ..ecommons import Service, POLARIZATION, SYSTEM, FEC, SERVICE_TYPE, FLAG
 
 _HEADER = "eDVB services /4/"
-_FILE_PATH = "../data/lamedb"
 _SEP = ":"  # separator
 _FILE_NAME = "lamedb"
 
-Channel = namedtuple("Channel", ["flags_cas", "transponder_type", "coded", "service", "locked", "hide",
-                                 "package", "service_type", "ssid", "freq", "rate", "pol", "fec",
-                                 "system", "pos", "data_id", "fav_id", "transponder"])
 
-
-def get_channels(path):
+def get_services(path):
     return parse(path)
 
 
-def write_channels(path, channels):
+def write_services(path, services):
     lines = [_HEADER, "\ntransponders\n"]
     tr_lines = []
     services_lines = ["end\nservices\n"]
     tr_set = set()
 
-    for ch in channels:
-        data_id = str(ch.data_id).split(_SEP)
+    for srv in services:
+        data_id = str(srv.data_id).split(_SEP)
         tr_id = "{}:{}:{}".format(data_id[1], data_id[2], data_id[3])
         if tr_id not in tr_set:
-            transponder = "{}\n\t{}\n/\n".format(tr_id, ch.transponder)
+            transponder = "{}\n\t{}\n/\n".format(tr_id, srv.transponder)
             tr_lines.append(transponder)
             tr_set.add(tr_id)
         # Services
-        services_lines.append("{}\n{}\n{}\n".format(ch.data_id, ch.service, ch.flags_cas))
+        services_lines.append("{}\n{}\n{}\n".format(srv.data_id, srv.service, srv.flags_cas))
 
     tr_lines.sort()
     lines.extend(tr_lines)
@@ -63,9 +56,9 @@ def parse(path):
                 log(msg)
                 raise SyntaxError(msg)
             transponders, sep, services = services.partition("services")  # 2 step
-            services, sep, _ = services.partition("end")  # 3 step
+            services, sep, _ = services.partition("\nend")  # 3 step
 
-            return parse_channels(services.split("\n"), transponders.split("/"), path)
+            return parse_services(services.split("\n"), transponders.split("/"), path)
 
 
 def parse_transponders(arg):
@@ -79,7 +72,7 @@ def parse_transponders(arg):
     return transponders
 
 
-def parse_channels(services, transponders, path):
+def parse_services(services, transponders, path):
     """ Parsing channels """
     channels = []
     transponders = parse_transponders(transponders)
@@ -92,9 +85,19 @@ def parse_channels(services, transponders, path):
     for ch in srv:
         data = str(ch[0]).split(_SEP)
         sp = "0"
+        tid = data[2]
+        nid = data[3]
+        transponder_id = "{}:{}:{}".format(data[1], tid, nid)
+        transponder = transponders.get(transponder_id, None)
+
+        tid = tid.lstrip(sp).upper()
+        nid = nid.lstrip(sp).upper()
+        ssid = str(data[0]).lstrip(sp).upper()
+        onid = str(data[1]).lstrip(sp).upper()
         # For comparison in bouquets. Needed in upper case!!!
-        fav_id = "{}:{}:{}:{}".format(str(data[0]).lstrip(sp), str(data[2]).lstrip(sp),
-                                      str(data[3]).lstrip(sp), str(data[1]).lstrip(sp)).upper()
+        fav_id = "{}:{}:{}:{}".format(ssid, tid, nid, onid)
+        picon_id = "1_0_{}_{}_{}_{}_{}_0_0_0.png".format(1, ssid, tid, nid, onid)
+
         all_flags = ch[2].split(",")
         coded = CODED_ICON if list(filter(lambda x: x.startswith("C:"), all_flags)) else None
         flags = list(filter(lambda x: x.startswith("f:"), all_flags))
@@ -104,21 +107,22 @@ def parse_channels(services, transponders, path):
         package = list(filter(lambda x: x.startswith("p:"), all_flags))
         package = package[0][2:] if package else None
 
-        transponder_id = "{}:{}:{}".format(data[1], data[2], data[3])
-        transponder = transponders.get(transponder_id, None)
-
         if transponder is not None:
             tr_type, sp, tr = str(transponder).partition(" ")
             tr = tr.split(_SEP)
             service_type = SERVICE_TYPE.get(data[4], SERVICE_TYPE["-2"])
-            channels.append(Channel(flags_cas=ch[2],
+            # removing all non printable symbols!
+            srv_name = "".join(c for c in ch[1] if c.isprintable())
+            channels.append(Service(flags_cas=ch[2],
                                     transponder_type=tr_type,
                                     coded=coded,
-                                    service=ch[1],
+                                    service=srv_name,
                                     locked=locked,
                                     hide=hide,
                                     package=package,
                                     service_type=service_type,
+                                    picon=None,
+                                    picon_id=picon_id,
                                     ssid=data[0],
                                     freq=tr[0],
                                     rate=tr[1],
