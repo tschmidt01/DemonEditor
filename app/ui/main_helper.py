@@ -39,8 +39,10 @@ def insert_marker(view, bouquets, selected_bouquet, channels, parent_window):
     fav_id = "1:64:{}:0:0:0:0:0:0:0::{}\n#DESCRIPTION {}\n".format(max_num, response, response)
     s_type = BqServiceType.MARKER.name
     model, paths = view.get_selection().get_selected_rows()
-    itr = model.insert_before(model.get_iter(paths[0]), (None, None, response, None, None, s_type, None, fav_id, None))
-    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, *[None] * 9, max_num, fav_id, None)
+    marker = (None, None, response, None, None, s_type, None, fav_id, None)
+    itr = model.insert_before(model.get_iter(paths[0]), marker) if paths else model.insert(0, marker)
+    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, None, None,
+                               None, None, None, None, None, None, None, max_num, fav_id, None)
     bouquets[selected_bouquet].insert(model.get_path(itr)[0], fav_id)
 
 
@@ -58,7 +60,11 @@ def edit_marker(view, bouquets, selected_bouquet, channels, parent_window):
     old_ch = channels.pop(fav_id, None)
     new_fav_id = "{}::{}\n#DESCRIPTION {}\n".format(fav_id.split("::")[0], response, response)
     model.set(itr, {2: response, 7: new_fav_id})
-    channels[new_fav_id] = Service(*old_ch[0:3], response, *old_ch[4:17], old_ch.data_id, new_fav_id, None)
+    new_srv = list(old_ch)
+    new_srv[3] = response
+    new_srv[17] = old_ch.data_id
+    new_srv[18] = new_fav_id
+    channels[new_fav_id] = Service(*new_srv)
     bq_services.pop(index)
     bq_services.insert(index, new_fav_id)
 
@@ -135,14 +141,16 @@ def edit(view, parent_window, target, fav_view=None, service_view=None, channels
         model.set_value(itr, 2, response)
 
         if service_view is not None:
-            for row in service_view.get_model():
+            for row in get_base_model(service_view.get_model()):
                 if row[18] == fav_id:
                     row[3] = response
                     break
 
     old_ch = channels.get(f_id, None)
     if old_ch:
-        channels[f_id] = Service(*old_ch[0:3], channel_name, *old_ch[4:])
+        new_srv = list(old_ch)
+        new_srv[3] = channel_name
+        channels[f_id] = Service(*new_srv)
 
 
 # ***************** Flags *******************#
@@ -188,14 +196,14 @@ def set_lock(blacklist, channels, model, paths, target, services_model):
     for path in paths:
         itr = model.get_iter(path)
         fav_id = model.get_value(itr, 18 if target is ViewTarget.SERVICES else 7)
-        channel = channels.get(fav_id, None)
-        if channel:
-            bq_id = to_bouquet_id(channel)
+        ch = channels.get(fav_id, None)
+        if ch:
+            bq_id = to_bouquet_id(ch)
             if not bq_id:
                 continue
             blacklist.discard(bq_id) if locked else blacklist.add(bq_id)
             model.set_value(itr, col_num, None if locked else LOCKED_ICON)
-            channels[fav_id] = Service(*channel[:4], None if locked else LOCKED_ICON, *channel[5:])
+            channels[fav_id] = Service(ch[0], ch[1], ch[2], ch[3], None if locked else LOCKED_ICON, *ch[5:])
             ids.append(fav_id)
 
     if target is ViewTarget.FAV and ids:
@@ -211,7 +219,7 @@ def set_hide(channels, model, paths):
     for path in paths:
         itr = model.get_iter(path)
         model.set_value(itr, col_num, None if hide else HIDE_ICON)
-        flags = [*model.get_value(itr, 0).split(",")]
+        flags = model.get_value(itr, 0).split(",")
         index, flag = None, None
         for i, fl in enumerate(flags):
             if fl.startswith("f:"):
@@ -241,9 +249,9 @@ def set_hide(channels, model, paths):
 
         model.set_value(itr, 0, (",".join(reversed(sorted(flags)))))
         fav_id = model.get_value(itr, 18)
-        channel = channels.get(fav_id, None)
-        if channel:
-            channels[fav_id] = Service(*channel[:5], None if hide else HIDE_ICON, *channel[6:])
+        ch = channels.get(fav_id, None)
+        if ch:
+            channels[fav_id] = Service(ch[0], ch[1], ch[2], ch[3], ch[4], None if hide else HIDE_ICON, *ch[6:])
 
 
 def has_locked_hide(model, paths, col_num):
