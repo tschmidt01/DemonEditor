@@ -1,6 +1,6 @@
 # DemonEditor
 
-Enigma2 channel and satellites list editor for GNU/Linux.                                                                          
+Enigma2 channel and satellites list editor for MS Windows(experimental).                                                                                                                          
 Experimental support of Neutrino-MP or others on the same basis (BPanther, etc).                                                   
 Focused on the convenience of working in lists from the keyboard. The mouse is also fully supported (Drag and Drop etc)
 
@@ -22,11 +22,6 @@ Ability to import IPTV into bouquet from m3u files(Enigma2 only)!
 Tool for downloading picons from lyngsat.com.                                                                                      
 
 Tests only in image based on OpenPLi or last BPanther(neutrino) images with GM 990 Spark Reloaded receiver
-in my preferred linux distro (Last Linux Mint 18.* - MATE 64-bit)!
-
-Minimum requirements: Python >= 3.5.2 and GTK+ 3 with PyGObject bindings.
 
 Terrestrial and cable channels at the moment are not supported!
-
-Note. To create a simple debian package, you can use the build-deb.sh
 

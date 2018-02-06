@@ -206,7 +206,10 @@ class MainAppWindow:
     def on_copy(self, view):
         model, paths = view.get_selection().get_selected_rows()
         itrs = [model.get_iter(path) for path in paths]
-        rows = [(0, *model.get(in_itr, 2, 3, 4, 5, 7, 14, 16)) for in_itr in itrs]
+        rows = []
+        for in_itr in itrs:
+            v1, v2, v3, v4, v5, v6, v7 = model.get(in_itr, 2, 3, 4, 5, 7, 14, 16)
+            rows.append((0, v1, v2, v3, v4, v5, v6, v7))
         self.__rows_buffer.extend(rows)
 
     def on_paste(self, view):
@@ -392,8 +395,7 @@ class MainAppWindow:
     def get_selection(self, view):
         """ Creates a string from the iterators of the selected rows """
         model, paths = view.get_selection().get_selected_rows()
-        if model.get_model():  # needs think about it !
-            model = model.get_model().get_model()
+        model = get_base_model(model)
 
         if len(paths) > 0:
             itrs = [model.get_iter(path) for path in paths]
