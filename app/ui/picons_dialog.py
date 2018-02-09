@@ -1,8 +1,8 @@
 import re
 import subprocess
-import tempfile
 import time
 
+import os
 from gi.repository import GLib, GdkPixbuf
 
 from app.commons import run_idle, run_task
@@ -17,7 +17,8 @@ from .main_helper import update_entry_data
 class PiconsDialog:
     def __init__(self, transient, options, picon_ids, profile=Profile.ENIGMA_2):
         self._picon_ids = picon_ids
-        self._TMP_DIR = tempfile.gettempdir() + "/"
+        self._TMP_DIR = "temp/"
+        self._WGET_PATH = "wget/wget"
         self._BASE_URL = "www.lyngsat.com/packages/"
         self._PATTERN = re.compile("^https://www\.lyngsat\.com/[\w-]+\.html$")
         self._current_process = None
@@ -80,11 +81,9 @@ class PiconsDialog:
     def on_load_providers(self, item):
         self._expander.set_expanded(True)
         url = self._url_entry.get_text()
-        self._current_process = subprocess.Popen(["wget", "-pkP", self._TMP_DIR, url],
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE,
-                                                 universal_newlines=True)
-        GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
+        os.makedirs(os.path.dirname(self._TMP_DIR), exist_ok=True)
+        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url], universal_newlines=True)
+        # GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
         self.append_providers(url)
 
     @run_task
@@ -123,11 +122,8 @@ class PiconsDialog:
     def process_provider(self, prv):
         url = prv.url
         self.show_info_message("Please, wait...", Gtk.MessageType.INFO)
-        self._current_process = subprocess.Popen(["wget", "-pkP", self._TMP_DIR, url],
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE,
-                                                 universal_newlines=True)
-        GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
+        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url], universal_newlines=True)
+        # GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
         self._current_process.wait()
         path = self._TMP_DIR + self._BASE_URL + url[url.rfind("/") + 1:]
         pos = "".join(c for c in prv.pos if c.isdigit())
