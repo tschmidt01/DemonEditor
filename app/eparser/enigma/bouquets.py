@@ -21,7 +21,7 @@ def write_bouquets(path, bouquets):
             line.append(srv_line.format(bq.name.replace(" ", "_"), bq.type))
             write_bouquet(path, bq.name, bq.type, bq.services)
 
-        with open(path + "bouquets.{}".format(bqs.type), "w") as file:
+        with open(path + "bouquets.{}".format(bqs.type), "w", encoding="utf-8") as file:
             file.writelines(line)
 
 
