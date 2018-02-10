@@ -846,7 +846,6 @@ class MainAppWindow:
     def on_locate_in_services(self, view):
         locate_in_services(view, self.__services_view, self.__main_window)
 
-    @run_idle
     def on_picons_loader_show(self, item):
         ids = {}
         if Profile(self.__profile) is Profile.ENIGMA_2:

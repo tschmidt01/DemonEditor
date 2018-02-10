@@ -1,3 +1,5 @@
 #digit-entry {
     border-color: Red;
+    border-radius: 5px;
+    border-width: 1.5px;
 }

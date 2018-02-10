@@ -19,7 +19,7 @@ class PiconsDialog:
     def __init__(self, transient, options, picon_ids, profile=Profile.ENIGMA_2):
         self._picon_ids = picon_ids
         self._TMP_DIR = "temp/"
-        self._WGET_PATH = "wget/wget"
+        self._WGET_PATH = "ext_bins/wget"
         self._BASE_URL = "www.lyngsat.com/packages/"
         self._PATTERN = re.compile("^https://www\.lyngsat\.com/[\w-]+\.html$")
         self._current_process = None
@@ -167,7 +167,7 @@ class PiconsDialog:
             return
 
         self.show_info_message("Resizing...", Gtk.MessageType.INFO)
-        command = "mogrify -resize {}! *.png".format(
+        command = "ext_bins/mogrify -resize {}! *.png".format(
             "320x240" if self._resize_220_132_radio_button.get_active() else "100x60").split()
         self._current_process = subprocess.Popen(command,
                                                  stdout=subprocess.PIPE,
@@ -186,8 +186,7 @@ class PiconsDialog:
     @run_idle
     def on_close(self, item):
         self.on_cancel(item)
-        if self._dialog:
-            self._dialog.destroy()
+        self._dialog.destroy()
 
     def on_send(self, item):
         if show_dialog(DialogType.QUESTION, self._dialog) == Gtk.ResponseType.CANCEL:

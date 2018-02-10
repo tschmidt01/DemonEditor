@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.19.0 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
   <object class="GtkAboutDialog" id="about_dialog">
@@ -59,6 +59,9 @@ dmitry.v.yefremov@gmail.com
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="doawload_dialog_action_area">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_top">2</property>
+            <property name="margin_bottom">2</property>
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="cancel_download_dialog_button">
@@ -398,12 +401,16 @@ dmitry.v.yefremov@gmail.com
     <child internal-child="vbox">
       <object class="GtkBox" id="error_dialog_vbox">
         <property name="can_focus">False</property>
+        <property name="valign">baseline</property>
         <property name="resize_mode">immediate</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="messagedialog-action_area8">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_top">2</property>
+            <property name="margin_bottom">5</property>
             <property name="layout_style">end</property>
           </object>
           <packing>
@@ -425,13 +432,16 @@ dmitry.v.yefremov@gmail.com
     <property name="type_hint">dialog</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="input_dialog_vbox">
-        <property name="width_request">320</property>
+        <property name="width_request">321</property>
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="dialog-action_area2">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_top">2</property>
+            <property name="margin_bottom">5</property>
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="button3">
@@ -587,6 +597,9 @@ dmitry.v.yefremov@gmail.com
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="messagedialog-action_area">
             <property name="can_focus">False</property>
+            <property name="margin_right">5</property>
+            <property name="margin_top">2</property>
+            <property name="margin_bottom">5</property>
             <property name="homogeneous">True</property>
             <property name="layout_style">end</property>
           </object>
@@ -979,7 +992,7 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">User bouquet files:</property>
-                    <property name="xalign">2.2351741291171123e-10</property>
+                    <property name="xalign">2.2351741291171123e-010</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1025,7 +1038,7 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">Picons:</property>
-                    <property name="xalign">2.2351741291171123e-10</property>
+                    <property name="xalign">2.2351741291171123e-010</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>

@@ -25,3 +25,11 @@ Tests only in image based on OpenPLi or last BPanther(neutrino) images with GM 9
 
 Terrestrial and cable channels at the moment are not supported!
 
+Note. For correct operations with picons you can take "wget.exe" from here: https://eternallybored.org/misc/wget/                                                         
+and "mogrify.exe" from portable Win32 static package here : https://www.imagemagick.org/script/download.php             
+Or from other sources at your discretion.
+       
+
+
+
+
