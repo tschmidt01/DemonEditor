@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 import time
 
@@ -82,14 +83,17 @@ class PiconsDialog:
         self._expander.set_expanded(True)
         url = self._url_entry.get_text()
         os.makedirs(os.path.dirname(self._TMP_DIR), exist_ok=True)
-        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url], universal_newlines=True)
-        # GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
+        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url],
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE,
+                                                 universal_newlines=True)
         self.append_providers(url)
 
     @run_task
     def append_providers(self, url):
         model = self._providers_tree_view.get_model()
         model.clear()
+        self.write_to_buffer()
         self._current_process.wait()
         providers = parse_providers(self._TMP_DIR + url[url.find("w"):])
         if providers:
@@ -122,8 +126,11 @@ class PiconsDialog:
     def process_provider(self, prv):
         url = prv.url
         self.show_info_message("Please, wait...", Gtk.MessageType.INFO)
-        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url], universal_newlines=True)
-        # GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
+        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url],
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE,
+                                                 universal_newlines=True)
+        self.write_to_buffer()
         self._current_process.wait()
         path = self._TMP_DIR + self._BASE_URL + url[url.rfind("/") + 1:]
         pos = "".join(c for c in prv.pos if c.isdigit())
@@ -132,13 +139,18 @@ class PiconsDialog:
         self.resize(self._picons_path)
         self.show_info_message("Done", Gtk.MessageType.INFO)
 
-    def write_to_buffer(self, fd, condition):
-        if condition == GLib.IO_IN:
-            char = fd.read(1)
-            self.append_output(char)
-            return True
-        else:
-            return False
+    @run_task
+    def write_to_buffer(self):
+        """ Writing output from subprocess to text view. Works on Windows
+
+            Idea taken from here: https://www.endpoint.com/blog/2015/01/28/getting-realtime-output-using-python
+        """
+        while True:
+            out = self._current_process.stderr.readline()
+            if self._current_process.poll():
+                break
+            if out:
+                self.append_output(out)
 
     @run_idle
     def append_output(self, char):
@@ -157,7 +169,10 @@ class PiconsDialog:
         self.show_info_message("Resizing...", Gtk.MessageType.INFO)
         command = "mogrify -resize {}! *.png".format(
             "320x240" if self._resize_220_132_radio_button.get_active() else "100x60").split()
-        self._current_process = subprocess.Popen(command, universal_newlines=True, cwd=path)
+        self._current_process = subprocess.Popen(command,
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE,
+                                                 universal_newlines=True, cwd=path)
         self._current_process.wait()
 
     @run_task
@@ -166,11 +181,13 @@ class PiconsDialog:
             self._terminate = True
             self._current_process.terminate()
             time.sleep(1)
+            shutil.rmtree(self._TMP_DIR)
 
     @run_idle
     def on_close(self, item):
         self.on_cancel(item)
-        self._dialog.destroy()
+        if self._dialog:
+            self._dialog.destroy()
 
     def on_send(self, item):
         if show_dialog(DialogType.QUESTION, self._dialog) == Gtk.ResponseType.CANCEL:
