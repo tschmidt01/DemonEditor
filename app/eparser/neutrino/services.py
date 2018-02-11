@@ -55,7 +55,6 @@ def write_services(path, services):
                 srv_elem = doc.createElement("S")
                 srv_elem.setAttribute("i", srv.ssid)
                 srv_elem.setAttribute("n", srv.service)
-
                 srv_attrs = srv.data_id.split(":")
                 api = srv_attrs.pop(0)
 
