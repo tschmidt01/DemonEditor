@@ -58,7 +58,7 @@ FEC = {"0": "Auto", "1": "1/2", "2": "2/3", "3": "3/4", "4": "5/6", "5": "7/8", 
 
 SYSTEM = {"0": "DVB-S", "1": "DVB-S2"}
 
-MODULATION = {"0": "Auto", "1": "QPSK", "2": "8PSK", "3": "16APSK", "5": "32APSK"}
+MODULATION = {"0": "Auto", "1": "QPSK", "2": "8PSK", "4": "16APSK", "5": "32APSK"}
 
 SERVICE_TYPE = {"-2": "Unknown", "1": "TV", "2": "Radio", "3": "Data",
                 "10": "Radio", "12": "Data", "22": "TV", "25": "TV (HD)", "31": "TV (UHD)",

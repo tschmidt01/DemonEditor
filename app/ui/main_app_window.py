@@ -432,10 +432,10 @@ class MainAppWindow:
                 for ext_row in ext_rows:
                     dest_index += 1
                     fav_id = ext_row[-2]
-                    channel = self.__services[fav_id]
-                    model.insert(dest_index, (0, channel.coded, channel.service, channel.locked, channel.hide,
-                                              channel.service_type, channel.pos, channel.fav_id))
-                    fav_bouquet.insert(dest_index, channel.fav_id)
+                    ch = self.__services[fav_id]
+                    model.insert(dest_index, (0, ch.coded, ch.service, ch.locked, ch.hide,
+                                              ch.service_type, ch.pos, ch.fav_id, ch.picon))
+                    fav_bouquet.insert(dest_index, ch.fav_id)
             elif source == self._FAV_LIST_NAME:
                 in_itrs = [model.get_iter_from_string(itr) for itr in itrs]
                 in_rows = [model[in_itr][:] for in_itr in in_itrs]
