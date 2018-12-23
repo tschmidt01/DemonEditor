@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.19.0 -->
+<!-- Generated with glade 3.22.1 -->
 <interface>
-  <requires lib="gtk+" version="3.12"/>
+  <requires lib="gtk+" version="3.10"/>
   <object class="GtkAboutDialog" id="about_dialog">
     <property name="can_focus">False</property>
     <property name="modal">True</property>
@@ -21,6 +21,9 @@ dmitry.v.yefremov@gmail.com
     <property name="logo_icon_name">accessories-text-editor</property>
     <property name="wrap_license">True</property>
     <property name="license_type">mit-x11</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="aboutdialog-vbox3">
         <property name="can_focus">False</property>
@@ -50,6 +53,9 @@ dmitry.v.yefremov@gmail.com
     <property name="destroy_with_parent">True</property>
     <property name="icon_name">mail-send-receive</property>
     <property name="type_hint">dialog</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="download_dialog_vbox">
         <property name="width_request">320</property>
@@ -179,7 +185,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">satellites_radio_button</property>
@@ -196,7 +201,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">satellites_radio_button</property>
                   </object>
@@ -212,7 +216,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">all_radio_button</property>
                   </object>
@@ -287,7 +290,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                   </object>
@@ -398,6 +400,9 @@ dmitry.v.yefremov@gmail.com
     <property name="type_hint">dialog</property>
     <property name="message_type">error</property>
     <property name="buttons">ok</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="error_dialog_vbox">
         <property name="can_focus">False</property>
@@ -430,6 +435,9 @@ dmitry.v.yefremov@gmail.com
     <property name="destroy_with_parent">True</property>
     <property name="icon_name">gtk-edit</property>
     <property name="type_hint">dialog</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="input_dialog_vbox">
         <property name="width_request">321</property>
@@ -525,6 +533,9 @@ dmitry.v.yefremov@gmail.com
     <property name="type_hint">dialog</property>
     <property name="action">select-folder</property>
     <property name="do_overwrite_confirmation">True</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="filechooser_dialog_vbox">
         <property name="can_focus">False</property>
@@ -555,7 +566,6 @@ dmitry.v.yefremov@gmail.com
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="use_stock">True</property>
-                <property name="yalign">0.55000001192092896</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -589,6 +599,9 @@ dmitry.v.yefremov@gmail.com
     <property name="message_type">question</property>
     <property name="buttons">ok-cancel</property>
     <property name="text" translatable="yes">Are you sure?</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="question_dialog_vbox">
         <property name="can_focus">False</property>
@@ -626,6 +639,9 @@ dmitry.v.yefremov@gmail.com
     <property name="modal">True</property>
     <property name="icon_name">preferences-desktop</property>
     <property name="type_hint">dialog</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox3">
         <property name="can_focus">False</property>
@@ -992,7 +1008,7 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">User bouquet files:</property>
-                    <property name="xalign">2.2351741291171123e-010</property>
+                    <property name="xalign">2.2351741291171123e-10</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1038,7 +1054,7 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">Picons:</property>
-                    <property name="xalign">2.2351741291171123e-010</property>
+                    <property name="xalign">2.2351741291171123e-10</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1102,7 +1118,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">neutrino_radio_button</property>
@@ -1121,7 +1136,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">enigma_radio_button</property>
@@ -1138,7 +1152,6 @@ dmitry.v.yefremov@gmail.com
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="xalign">0.49000000953674316</property>
                     <signal name="clicked" handler="on_reset" swapped="no"/>
                   </object>
                   <packing>
