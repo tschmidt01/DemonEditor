@@ -27,15 +27,29 @@ Transponder = namedtuple("Transponder", ["frequency", "symbol_rate", "polarizati
                                          "system", "modulation", "pls_mode", "pls_code", "is_id"])
 
 
-class Type(Enum):
-    """ Types of DVB transponders """
+class TrType(Enum):
+    """ Transponders type """
     Satellite = "s"
     Terestrial = "t"
     Cable = "c"
 
 
-class FLAG(Enum):
-    """ Service flags """
+class BqType(Enum):
+    """ Bouquet type"""
+    BOUQUET = "bouquet"
+    TV = "tv"
+    RADIO = "radio"
+    WEBTV = "webtv"
+
+
+class Flag(Enum):
+    """ Service flags
+
+        K - last bit (1)
+        H - second from end (10)
+        P - third (100)
+        N - sixth (100000)
+    """
     KEEP = 1  # Do not automatically update the services parameters.
     HIDE = 2
     PIDS = 4  # Always use the cached instead of current pids.
@@ -43,9 +57,48 @@ class FLAG(Enum):
     NEW = 40  # Marked as new at the last scan
 
     @staticmethod
-    def hide_values():
-        return 2, 3, 6, 7, 10, 42, 43, 46, 47
+    def is_hide(value: int):
+        return value & 1 << 1
 
+    @staticmethod
+    def is_keep(value: int):
+        return value & 1 << 0
+
+    @staticmethod
+    def is_pids(value: int):
+        return value & 1 << 2
+
+    @staticmethod
+    def is_new(value: int):
+        return value & 1 << 5
+
+
+class Pids(Enum):
+    VIDEO = "c:00"
+    AUDIO = "c:01"
+    TELETEXT = "c:02"
+    PCR = "c:03"
+    AC3 = "c:04"
+    VIDEO_TYPE = "c:05"
+    AUDIO_CHANNEL = "c:06"
+    BIT_STREAM_DELAY = "c:07"  # in ms
+    PCM_DELAY = "c:08"  # in ms
+    SUBTITLE = "c:09"
+
+
+class Inversion(Enum):
+    Off = "0"
+    On = "1"
+    Auto = "2"
+
+
+class Pilot(Enum):
+    Off = "0"
+    On = "1"
+    Auto = "2"
+
+
+ROLL_OFF = {"0": "35%", "1": "25%", "2": "20%", "3": "Auto"}
 
 POLARIZATION = {"0": "H", "1": "V", "2": "L", "3": "R"}
 
@@ -56,13 +109,15 @@ FEC = {"0": "Auto", "1": "1/2", "2": "2/3", "3": "3/4", "4": "5/6", "5": "7/8", 
        "17": "4/5", "18": "9/10", "19": "1/2", "20": "2/3", "21": "3/4", "22": "5/6", "23": "7/8", "24": "8/9",
        "25": "3/5", "26": "4/5", "27": "9/10", "28": "Auto"}
 
+FEC_DEFAULT = {"0": "Auto", "1": "1/2", "2": "2/3", "3": "3/4", "4": "5/6", "5": "7/8", "6": "8/9", "7": "3/5",
+               "8": "4/5", "9": "9/10"}
+
 SYSTEM = {"0": "DVB-S", "1": "DVB-S2"}
 
 MODULATION = {"0": "Auto", "1": "QPSK", "2": "8PSK", "4": "16APSK", "5": "32APSK"}
 
-SERVICE_TYPE = {"-2": "Unknown", "1": "TV", "2": "Radio", "3": "Data",
-                "10": "Radio", "12": "Data", "22": "TV", "25": "TV (HD)", "31": "TV (UHD)",
-                "136": "Data", "139": "Data"}
+SERVICE_TYPE = {"-2": "Data", "1": "TV", "2": "Radio", "3": "Data", "10": "Radio", "22": "TV (H264)",
+                "25": "TV (HD)", "31": "TV (UHD)"}
 
 CAS = {"C:2600": "BISS", "C:0b00": "Conax", "C:0b01": "Conax", "C:0b02": "Conax", "C:0baa": "Conax", "C:0602": "Irdeto",
        "C:0604": "Irdeto", "C:0606": "Irdeto", "C:0608": "Irdeto", "C:0622": "Irdeto", "C:0626": "Irdeto",
@@ -71,3 +126,42 @@ CAS = {"C:2600": "BISS", "C:0b00": "Conax", "C:0b01": "Conax", "C:0b02": "Conax"
 
 # 'on' attribute  0070(hex) = 112(int) =  ONID(ONID-TID on www.lyngsat.com)
 PROVIDER = {112: "HTB+", 253: "Tricolor TV"}
+
+
+# ************* subsidiary functions ****************
+
+def get_key_by_value(dc: dict, value):
+    """ Returns key from dict by value """
+    for k, v in dc.items():
+        if v == value:
+            return k
+
+
+def get_value_by_name(en, name):
+    """ Returns value by name from enums """
+    for n in en:
+        if n.name == name:
+            return n.value
+
+
+def is_transponder_valid(tr: Transponder):
+    """ Checks  transponder validity """
+    try:
+        int(tr.frequency)
+        int(tr.symbol_rate)
+        tr.pls_mode is None or int(tr.pls_mode)
+        tr.pls_code is None or int(tr.pls_code)
+        tr.is_id is None or int(tr.is_id)
+    except TypeError:
+        return False
+
+    if tr.polarization not in POLARIZATION.values():
+        return False
+    if tr.fec_inner not in FEC.values():
+        return False
+    if tr.system not in SYSTEM.values():
+        return False
+    if tr.modulation not in MODULATION.values():
+        return False
+
+    return True

@@ -1,0 +1,506 @@
+# Copyright (C) 2018 Dmitriy Yefremov
+# This file is distributed under the MIT license.
+# Dmitriy Yefremov , 2018.
+msgid ""
+msgstr ""
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+
+# Main
+msgid "Service"
+msgstr "Сервис"
+
+msgid "Package"
+msgstr "Пакет"
+
+msgid "Type"
+msgstr "Тип"
+
+msgid "Picon"
+msgstr "Пикон"
+
+msgid "Freq"
+msgstr "Частота"
+
+msgid "Rate"
+msgstr "Сим. скорость"
+
+msgid "Pol"
+msgstr "Пол."
+
+msgid "System"
+msgstr "Система"
+
+msgid "Pos"
+msgstr "Поз."
+
+msgid "Num"
+msgstr "№"
+
+msgid "Current IP:"
+msgstr "Текущий IP:"
+
+msgid "Assign"
+msgstr "Привязать"
+
+msgid "Bouquet details"
+msgstr "Сервисы букета"
+
+msgid "Bouquets"
+msgstr "Букеты"
+
+msgid "Copy"
+msgstr "Копировать"
+
+msgid "Copy reference"
+msgstr "Копировать ссылку"
+
+msgid "Data"
+msgstr ""
+
+msgid "Download"
+msgstr "Загрузить"
+
+msgid "Edit"
+msgstr "Изменить"
+
+msgid "Edit "
+msgstr "Изменить"
+
+msgid "Edit mаrker text"
+msgstr "Изменить текст маркера"
+
+msgid "FTP-transfer"
+msgstr "Передача установок по FTP"
+
+msgid "Global search"
+msgstr "Глобальный поиск"
+
+msgid "Hide"
+msgstr "Пропустить"
+
+msgid "Hide/Skip On/Off     Ctrl + H"
+msgstr "Скрыть/Пропустить Вкл/Выкл     Ctrl + H"
+
+msgid "Add IPTV or stream service"
+msgstr "Добавить IPTV или поток"
+
+msgid "Import m3u"
+msgstr "Импортировать m3u"
+
+msgid "Import m3u file"
+msgstr "Импортировать файл m3u"
+
+msgid "Insert marker"
+msgstr "Вставить маркер"
+
+msgid "Locate in services"
+msgstr "Найти в списке сервисов"
+
+msgid "Locked"
+msgstr "Заблокирован"
+
+msgid "Move"
+msgstr "Переместить"
+
+msgid "New"
+msgstr "Новый"
+
+msgid "New bouquet"
+msgstr "Новый букет"
+
+msgid "Create bouquet"
+msgstr "Создать букет"
+
+msgid "For current satellite"
+msgstr "Для текущего спутника"
+
+msgid "For current package"
+msgstr "Для текущего пакета"
+
+msgid "For current type"
+msgstr "Для текущего типа"
+
+msgid "For each satellite"
+msgstr "Для каждого спутника"
+
+msgid "For each package"
+msgstr "Для каждого пакета"
+
+msgid "For each type"
+msgstr "Для каждого типа"
+
+msgid "Open"
+msgstr "Открыть"
+
+msgid "Parent lock On/Off     Ctrl + L"
+msgstr "Родительский замок Вкл/Выкл     Ctrl + L"
+
+msgid "Picons"
+msgstr "Пиконы"
+
+msgid "Picons downloader"
+msgstr "Загрузчик пиконов"
+
+msgid "Satellites downloader"
+msgstr "Загрузчик спутников"
+
+msgid "Preferences"
+msgstr "Настройки"
+
+msgid "Profile:"
+msgstr "Профиль:"
+
+msgid "Radio"
+msgstr ""
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Satellites editor"
+msgstr "Редактор спутников"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Search"
+msgstr "Поиск"
+
+msgid "Services"
+msgstr "Сервисы"
+
+msgid "Services filter"
+msgstr "Фильтр сервисов"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Up"
+msgstr "Переместить вверх"
+
+msgid "Down"
+msgstr "Переместить вниз"
+
+msgid "Active profile:"
+msgstr "Активный профиль:"
+
+msgid "All"
+msgstr "Все"
+
+msgid "Are you sure?"
+msgstr "Вы уверены?"
+
+msgid "Current data path:"
+msgstr "Текущий путь к данным:"
+
+msgid "Data dir:"
+msgstr "Путь к данным:"
+
+msgid "Data:"
+msgstr "Данные:"
+
+msgid "Enigma2 channel and satellites list editor for GNU/Linux"
+msgstr "Редактор списка каналов и спутников Enigma2\n для GNU/Linux"
+
+msgid "FTP"
+msgstr ""
+
+msgid "Host:"
+msgstr "Адрес ресивера:"
+
+msgid "Loading data..."
+msgstr "Загрузка данных..."
+
+msgid "Login:"
+msgstr "Логин:"
+
+msgid "Options"
+msgstr "Настройки"
+
+msgid "Password:"
+msgstr "Пароль:"
+
+msgid "Picons dir:"
+msgstr "Директория пиконов:"
+
+msgid "Picons:"
+msgstr "Пиконы:"
+
+msgid "Port:"
+msgstr "Порт:"
+
+msgid "Receive"
+msgstr "Получить"
+
+msgid "Receive files from receiver"
+msgstr "Получить файлы из ресивера"
+
+msgid "Receiver IP:"
+msgstr "IP адрес ресивера:"
+
+msgid "Remove unused bouquets"
+msgstr "Удалить не испрльзуемые букеты"
+
+msgid "Reset profile"
+msgstr "Сброс профиля"
+
+msgid "Satellites"
+msgstr "Спутники"
+
+msgid "Satellites.xml file:"
+msgstr "Файл satellites.xml:"
+
+msgid "Selected"
+msgstr "Выбор"
+
+msgid "Send"
+msgstr "Отправить"
+
+msgid "Send files to receiver"
+msgstr "Отправить файлы в ресивер"
+
+msgid "Services and Bouquets files:"
+msgstr "Файлы сервисов и букетов:"
+
+msgid "Telnet"
+msgstr ""
+
+msgid "Timeout between commands in seconds"
+msgstr "Пауза между коммандами в сек."
+
+msgid "Timeout:"
+msgstr "Тайм-аут:"
+
+msgid "User bouquet files:"
+msgstr "Файлы букетов:"
+
+msgid "WebTV"
+msgstr ""
+
+msgid "Extra:"
+msgstr "Дополнительно:"
+
+# Picons dialog
+msgid "Load providers"
+msgstr "Загрузить провайдеров"
+
+msgid "Providers"
+msgstr "Провайдеры"
+
+msgid "Receive picons"
+msgstr "Загрузить пиконы"
+
+msgid "Picons name format:"
+msgstr "Формат имени пиконов:"
+
+msgid "Resize:"
+msgstr "Обрезать:"
+
+msgid "Current picons path:"
+msgstr "Текущий путь к пиконам:"
+
+msgid "Receiver picons path:"
+msgstr "Путь к пиконам ресивера:"
+
+msgid "Picons download tool"
+msgstr "Загрузчик пиконов"
+
+msgid "Transfer to receiver"
+msgstr "Загрузить в ресивер"
+
+msgid "Downloader"
+msgstr "Загрузчик"
+
+msgid "Converter"
+msgstr "Конвертер"
+
+msgid "Convert"
+msgstr "Конвертировать"
+
+msgid "Path to save:"
+msgstr "Путь для сохранения:"
+
+msgid "Path to Enigma2 picons:"
+msgstr "Путь к пиконам формата Enigma2:"
+
+msgid "Specify the correct position value for the provider!"
+msgstr "Укажите правильное значение позиции для провайдера!"
+
+msgid "Converter between name formats"
+msgstr "Конвертер формата имен"
+
+msgid "Receive picons for providers"
+msgstr "Получение пиконов для провайдеров"
+
+msgid "Load satellite providers."
+msgstr "Загрузка провайдеров"
+
+msgid "To automatically set the identifiers for picons,\nfirst load the required services list into the main application window."
+msgstr "Для автоматического именования пиконов,\nзагрузите список необходимых сервисов в главное окно программы."
+
+# Satellites editor
+msgid "Satellites edit tool"
+msgstr "Редактор спутников"
+
+msgid "Add"
+msgstr "Добавить"
+
+msgid "Satellite"
+msgstr "Спутник"
+
+msgid "Transponder"
+msgstr "Транспондер"
+
+msgid "Satellite properties:"
+msgstr "Параметры спутника:"
+
+msgid "Transponder properties:"
+msgstr "Параметры транспондера:"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "Position"
+msgstr "Позиция"
+
+# Service details dialog
+msgid "Service data:"
+msgstr "Данные сервиса:"
+
+msgid "Transponder data:"
+msgstr "Данные транспондера:"
+
+msgid "Service data"
+msgstr "Данные сервиса"
+
+msgid "Transponder details"
+msgstr "Данные транспондера"
+
+msgid "Changes will be applied to all services of this transponder!\nContinue?"
+msgstr "Изменения будут применены ко всем сервисам данного транспондера!\nПродолжить?"
+
+msgid "Reference"
+msgstr "Ссылка"
+
+msgid "Namespace"
+msgstr "Пр. имен"
+
+msgid "Flags:"
+msgstr "Флаги:"
+
+msgid "Delays (ms):"
+msgstr "Задержки (mc)"
+
+msgid "Bitstream"
+msgstr "Поток"
+
+msgid "Description"
+msgstr "Описание"
+
+msgid "Source:"
+msgstr "Источник:"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+msgid "Update"
+msgstr "Обновить"
+
+msgid "Filter"
+msgstr "Фильтр"
+
+msgid "Find"
+msgstr "Поиск"
+
+# IPTV dialog
+msgid "Stream data"
+msgstr "Данные потока"
+
+# Dialogs messages
+msgid "Error. No bouquet is selected!"
+msgstr "Ошибка. Не выбран букет!"
+
+msgid "This item is not allowed to be removed!"
+msgstr "Этот элемент не разрешен к удалению!"
+
+msgid "This item is not allowed to edit!"
+msgstr "Элемент не предназначен для редактирования!"
+
+msgid "Please, download files from receiver or setup your path for read data!"
+msgstr "Пожалуйста, загрузите файлы из приемника или настройте путь для чтения данных!"
+
+msgid "Reading data error!"
+msgstr "Ошибка чтения данных!"
+
+msgid "No m3u file is selected!"
+msgstr "Не выбран m3u файл!"
+
+msgid "Not implemented yet!"
+msgstr "Пока не реализовано!"
+
+msgid "The text of marker is empty, please try again!"
+msgstr "Текст маркера пуст, попробуйте еще!"
+
+msgid "Please, select only one item!"
+msgstr "Пожалуйста, выберите только один элемент!"
+
+msgid "No png file is selected!"
+msgstr "Не выбран png файл!"
+
+msgid "No reference is present!"
+msgstr "Ссылка не найдена!"
+
+msgid "No selected item!"
+msgstr "Не выбран элемент!"
+
+msgid "The task is already running!"
+msgstr "Задача уже запущена!"
+
+msgid "Done!"
+msgstr "Готово!"
+
+msgid "Please, wait..."
+msgstr "Пожалуйста, подождите..."
+
+msgid "Resizing..."
+msgstr "Изменение размера..."
+
+msgid "Select paths!"
+msgstr "Укажите пути!"
+
+msgid "No satellite is selected!"
+msgstr "Не выбран спутник!"
+
+msgid "Please, select only one satellite!"
+msgstr "Пожалуйста, выберите только один спутник!"
+
+msgid "Please check your parameters and try again."
+msgstr "Пожалуйста, проверте параметры и попробуйте снова!"
+
+msgid "No satellites.xml file is selected!"
+msgstr "Не выбран файл satellites.xml!"
+
+msgid "Error. Verify the data!"
+msgstr "Ошибка. Проверьте данные!"
+
+msgid "Operation not allowed in this context!"
+msgstr "Недопустимая операция в данном контексте!"
+
+msgid "No VLC is found. Check that it is installed!"
+msgstr "VLC не найден. Проверьте, что он установлен!"
+
+
+
+
+
+
+
+
+
+
+
+
+

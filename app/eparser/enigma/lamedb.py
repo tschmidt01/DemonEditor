@@ -2,9 +2,9 @@
 import re
 
 from app.commons import log
-from app.ui import CODED_ICON, HIDE_ICON, LOCKED_ICON
+from app.eparser.ecommons import SERVICE_TYPE, Service, POLARIZATION, FEC, Flag
+from app.ui.uicommons import CODED_ICON, HIDE_ICON, LOCKED_ICON
 from .blacklist import get_blacklist
-from ..ecommons import Service, POLARIZATION, FEC, SERVICE_TYPE, FLAG
 
 _HEADER = "eDVB services /{}/"
 _SEP = ":"  # separator
@@ -12,8 +12,8 @@ _FILE_NAME = "lamedb"
 _END_LINE = "# File was created in DemonEditor.\n# ....Enjoy watching!....\n"
 
 
-def get_services(path):
-    return parse(path)
+def get_services(path, format_version=4):
+    return parse(path, format_version)
 
 
 def write_services(path, services, format_version=4):
@@ -212,7 +212,7 @@ def parse_services(services, transponders, path):
         all_flags = ch[2].split(",")
         coded = CODED_ICON if list(filter(lambda x: x.startswith("C:"), all_flags)) else None
         flags = list(filter(lambda x: x.startswith("f:"), all_flags))
-        hide = HIDE_ICON if flags and int(flags[0][2:]) in FLAG.hide_values() else None
+        hide = HIDE_ICON if flags and Flag.is_hide(int(flags[0][2:])) else None
         locked = LOCKED_ICON if fav_id in blacklist else None
 
         package = list(filter(lambda x: x.startswith("p:"), all_flags))

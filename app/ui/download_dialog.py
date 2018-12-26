@@ -1,8 +1,8 @@
 from app.commons import run_idle, run_task
 from app.ftp import download_data, DownloadDataType, upload_data
 from app.properties import Profile
-from . import Gtk, UI_RESOURCES_PATH
-from .dialogs import show_dialog, DialogType
+from .uicommons import Gtk, UI_RESOURCES_PATH, TEXT_DOMAIN
+from .dialogs import show_dialog, DialogType, get_message
 
 
 def show_download_dialog(transient, options, open_data, profile=Profile.ENIGMA_2):
@@ -22,6 +22,7 @@ class DownloadDialog:
                     "on_info_bar_close": self.on_info_bar_close}
 
         builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
         builder.add_objects_from_file(UI_RESOURCES_PATH + "dialogs.glade", ("download_dialog",))
         builder.connect_signals(handlers)
 
@@ -35,16 +36,19 @@ class DownloadDialog:
         self._all_radio_button = builder.get_object("all_radio_button")
         self._bouquets_radio_button = builder.get_object("bouquets_radio_button")
         self._satellites_radio_button = builder.get_object("satellites_radio_button")
+        self._webtv_radio_button = builder.get_object("webtv_radio_button")
+        if profile is Profile.NEUTRINO_MP:
+            self._webtv_radio_button.set_visible(True)
         # self._dialog.get_content_area().set_border_width(0)
 
     @run_idle
     def on_receive(self, item):
-        self.download(True, d_type=self.get_download_type())
+        self.download(True, self.get_download_type())
 
     @run_idle
     def on_send(self, item):
         if show_dialog(DialogType.QUESTION, self._dialog) != Gtk.ResponseType.CANCEL:
-            self.download(d_type=self.get_download_type())
+            self.download(False, self.get_download_type())
 
     def get_download_type(self):
         download_type = DownloadDataType.ALL
@@ -52,6 +56,8 @@ class DownloadDialog:
             download_type = DownloadDataType.BOUQUETS
         elif self._satellites_radio_button.get_active():
             download_type = DownloadDataType.SATELLITES
+        elif self._webtv_radio_button.get_active():
+            download_type = DownloadDataType.WEBTV
         return download_type
 
     def run(self):
@@ -65,18 +71,18 @@ class DownloadDialog:
 
     @run_idle
     @run_task
-    def download(self, download=False, d_type=DownloadDataType.ALL):
+    def download(self, download, d_type):
         """ Download/upload data from/to receiver """
         try:
             if download:
                 download_data(properties=self._properties, download_type=d_type)
             else:
-                self.show_info_message("Please, wait...", Gtk.MessageType.INFO)
+                self.show_info_message(get_message("Please, wait..."), Gtk.MessageType.INFO)
                 upload_data(properties=self._properties,
                             download_type=d_type,
                             remove_unused=self._remove_unused_check_button.get_active(),
                             profile=self._profile,
-                            callback=lambda: self.show_info_message("Done!", Gtk.MessageType.INFO))
+                            callback=lambda: self.show_info_message(get_message("Done!"), Gtk.MessageType.INFO))
         except Exception as e:
             message = str(getattr(e, "message", str(e)))
             self.show_info_message(message, Gtk.MessageType.ERROR)

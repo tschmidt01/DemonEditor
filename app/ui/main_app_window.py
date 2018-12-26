@@ -1,32 +1,44 @@
 import os
+import shutil
+
 from contextlib import suppress
 from functools import lru_cache
-
-import shutil
 
 from app.commons import run_idle, log
 from app.eparser import get_blacklist, write_blacklist, parse_m3u
 from app.eparser import get_services, get_bouquets, write_bouquets, write_services, Bouquets, Bouquet, Service
-from app.eparser.ecommons import CAS, FLAG
+from app.eparser.ecommons import CAS, Flag
 from app.eparser.enigma.bouquets import BqServiceType
+from app.eparser.neutrino.bouquets import BqType
 from app.properties import get_config, write_config, Profile
-from . import Gtk, Gdk, UI_RESOURCES_PATH, LOCKED_ICON, HIDE_ICON
-from .dialogs import show_dialog, DialogType, get_chooser_dialog
+from app.tools.media import Player
+from .iptv import IptvDialog
+from .search import SearchProvider
+from .uicommons import Gtk, Gdk, UI_RESOURCES_PATH, LOCKED_ICON, HIDE_ICON, IPTV_ICON, MOVE_KEYS
+from .dialogs import show_dialog, DialogType, get_chooser_dialog, WaitDialog, get_message
 from .download_dialog import show_download_dialog
-from .main_helper import edit_marker, insert_marker, move_items, edit, ViewTarget, set_flags, locate_in_services, \
-    scroll_to, get_base_model, update_picons, copy_picon_reference, assign_picon, remove_picon, search
-from .picons_dialog import PiconsDialog
+from .main_helper import edit_marker, insert_marker, move_items, rename, ViewTarget, set_flags, locate_in_services, \
+    scroll_to, get_base_model, update_picons, copy_picon_reference, assign_picon, remove_picon, \
+    is_only_one_item_selected, gen_bouquets, BqGenType
+from .picons_downloader import PiconsDialog
 from .satellites_dialog import show_satellites_dialog
 from .settings_dialog import show_settings_dialog
+from .service_details_dialog import ServiceDetailsDialog, Action
 
 
 class MainAppWindow:
+    _TV_TYPES = ("TV", "TV (HD)", "TV (UHD)", "TV (H264)")
+
     _SERVICE_LIST_NAME = "services_list_store"
+
     _FAV_LIST_NAME = "fav_list_store"
+
     _BOUQUETS_LIST_NAME = "bouquets_tree_store"
+
     # dynamically active elements depending on the selected view
     _SERVICE_ELEMENTS = ("copy_tool_button", "to_fav_tool_button", "copy_menu_item", "services_to_fav_move_popup_item",
-                         "services_edit_popup_item", "services_copy_popup_item", "services_picon_popup_item")
+                         "services_edit_popup_item", "services_copy_popup_item", "services_picon_popup_item",
+                         "services_create_bouquet_popup_item")
 
     _BOUQUET_ELEMENTS = ("edit_tool_button", "new_tool_button",
                          "bouquets_new_popup_item", "bouquets_edit_popup_item")
@@ -37,23 +49,25 @@ class MainAppWindow:
     _FAV_ELEMENTS = ("cut_tool_button", "paste_tool_button", "cut_menu_item",
                      "paste_menu_item", "fav_cut_popup_item", "fav_paste_popup_item", "import_m3u_tool_button",
                      "fav_import_m3u_popup_item", "fav_insert_marker_popup_item", "fav_edit_popup_item",
-                     "fav_locate_popup_item", "fav_picon_popup_item")
+                     "fav_locate_popup_item", "fav_picon_popup_item", "fav_add_iptv_popup_item")
 
-    _FAV_ONLY_ELEMENTS = ("import_m3u_tool_button", "fav_import_m3u_popup_item", "fav_insert_marker_popup_item",
-                          "fav_edit_marker_popup_item")
+    _FAV_ENIGMA_ELEMENTS = ("fav_insert_marker_popup_item",)
+
+    _FAV_M3U_ELEMENTS = ("import_m3u_tool_button", "fav_import_m3u_popup_item", "fav_add_iptv_popup_item")
 
     _LOCK_HIDE_ELEMENTS = ("locked_tool_button", "hide_tool_button")
 
-    __DYNAMIC_ELEMENTS = ("up_tool_button", "down_tool_button", "cut_tool_button", "copy_tool_button",
-                          "paste_tool_button", "to_fav_tool_button", "new_tool_button", "remove_tool_button",
-                          "cut_menu_item", "copy_menu_item", "paste_menu_item", "delete_menu_item", "edit_tool_button",
-                          "services_to_fav_move_popup_item", "services_edit_popup_item", "locked_tool_button",
-                          "services_remove_popup_item", "fav_cut_popup_item", "fav_paste_popup_item",
-                          "bouquets_new_popup_item", "bouquets_edit_popup_item", "services_remove_popup_item",
-                          "bouquets_remove_popup_item", "fav_remove_popup_item", "hide_tool_button",
-                          "import_m3u_tool_button", "fav_import_m3u_popup_item", "fav_insert_marker_popup_item",
-                          "fav_edit_marker_popup_item", "fav_edit_popup_item", "fav_locate_popup_item",
-                          "services_copy_popup_item", "services_picon_popup_item", "fav_picon_popup_item")
+    _DYNAMIC_ELEMENTS = ("up_tool_button", "down_tool_button", "cut_tool_button", "services_create_bouquet_popup_item",
+                         "paste_tool_button", "to_fav_tool_button", "new_tool_button", "remove_tool_button",
+                         "cut_menu_item", "copy_menu_item", "paste_menu_item", "delete_menu_item", "edit_tool_button",
+                         "services_to_fav_move_popup_item", "services_edit_popup_item", "locked_tool_button",
+                         "services_remove_popup_item", "fav_cut_popup_item", "fav_paste_popup_item",
+                         "bouquets_new_popup_item", "bouquets_edit_popup_item", "services_remove_popup_item",
+                         "bouquets_remove_popup_item", "fav_remove_popup_item", "hide_tool_button",
+                         "import_m3u_tool_button", "fav_import_m3u_popup_item", "fav_insert_marker_popup_item",
+                         "fav_edit_popup_item", "fav_locate_popup_item", "services_copy_popup_item",
+                         "services_picon_popup_item", "fav_picon_popup_item", "services_add_new_popup_item",
+                         "fav_add_iptv_popup_item", "copy_tool_button")
 
     def __init__(self):
         handlers = {"on_close_main_window": self.on_quit,
@@ -73,10 +87,8 @@ class MainAppWindow:
                     "on_cut": self.on_cut,
                     "on_copy": self.on_copy,
                     "on_paste": self.on_paste,
-                    "on_edit": self.on_edit,
+                    "on_edit": self.on_rename,
                     "on_delete": self.on_delete,
-                    "on_new_bouquet": self.on_new_bouquet,
-                    "on_bouquets_edit": self.on_bouquets_edit,
                     "on_tool_edit": self.on_tool_edit,
                     "on_to_fav_move": self.on_to_fav_move,
                     "on_services_tree_view_drag_data_get": self.on_services_tree_view_drag_data_get,
@@ -90,7 +102,7 @@ class MainAppWindow:
                     "on_import_m3u": self.on_import_m3u,
                     "on_insert_marker": self.on_insert_marker,
                     "on_edit_marker": self.on_edit_marker,
-                    "on_fav_popup": self.on_fav_popup,
+                    "on_fav_press": self.on_fav_press,
                     "on_locate_in_services": self.on_locate_in_services,
                     "on_picons_loader_show": self.on_picons_loader_show,
                     "on_filter_changed": self.on_filter_changed,
@@ -99,87 +111,128 @@ class MainAppWindow:
                     "on_reference_picon": self.on_reference_picon,
                     "on_filter_toggled": self.on_filter_toggled,
                     "on_search_toggled": self.on_search_toggled,
-                    "on_search": self.on_search}
+                    "on_search_down": self.on_search_down,
+                    "on_search_up": self.on_search_up,
+                    "on_search": self.on_search,
+                    "on_service_edit": self.on_service_edit,
+                    "on_services_add_new": self.on_services_add_new,
+                    "on_iptv": self.on_iptv,
+                    "on_fav_iptv_mode": self.on_fav_iptv_mode,
+                    "on_drawing_area_realize": self.on_drawing_area_realize,
+                    "on_player_press": self.on_player_press,
+                    "on_main_window_state": self.on_main_window_state,
+                    "on_new_bouquet": self.on_new_bouquet,
+                    "on_bouquets_edit": self.on_bouquets_edit,
+                    "on_create_bouquet_for_current_satellite": self.on_create_bouquet_for_current_satellite,
+                    "on_create_bouquet_for_each_satellite": self.on_create_bouquet_for_each_satellite,
+                    "on_create_bouquet_for_current_package": self.on_create_bouquet_for_current_package,
+                    "on_create_bouquet_for_each_package": self.on_create_bouquet_for_each_package,
+                    "on_create_bouquet_for_current_type": self.on_create_bouquet_for_current_type,
+                    "on_create_bouquet_for_each_type": self.on_create_bouquet_for_each_type}
 
-        self.__options = get_config()
-        self.__profile = self.__options.get("profile")
-        os.makedirs(os.path.dirname(self.__options.get(self.__profile).get("data_dir_path")), exist_ok=True)
+        self._options = get_config()
+        self._profile = self._options.get("profile")
+        os.makedirs(os.path.dirname(self._options.get(self._profile).get("data_dir_path")), exist_ok=True)
         # Used for copy/paste. When adding the previous data will not be deleted.
         # Clearing only after the insertion!
-        self.__rows_buffer = []
-        self.__services = {}
-        self.__bouquets = {}
-        self.__picons = {}
-        self.__blacklist = set()
+        self._rows_buffer = []
+        self._services = {}
+        self._bouquets = {}
+        self._picons = {}
+        self._blacklist = set()
+        self._current_bq_name = None
+        # Player
+        self._iptv_preview_mode = False
+        self._player = None
+        self._is_played = False
+        self._full_screen = False
 
         builder = Gtk.Builder()
+        builder.set_translation_domain("demon-editor")
         builder.add_from_file(UI_RESOURCES_PATH + "main_window.glade")
         builder.connect_signals(handlers)
-        self.__main_window = builder.get_object("main_window")
-        main_window_size = self.__options.get("window_size", None)
+        self._main_window = builder.get_object("main_window")
+        main_window_size = self._options.get("window_size", None)
         # Setting the last size of the window if it was saved
         if main_window_size:
-            self.__main_window.resize(*main_window_size)
-        self.__services_view = builder.get_object("services_tree_view")
-        self.__fav_view = builder.get_object("fav_tree_view")
-        self.__bouquets_view = builder.get_object("bouquets_tree_view")
-        self.__fav_model = builder.get_object("fav_list_store")
-        self.__services_model = builder.get_object("services_list_store")
-        self.__bouquets_model = builder.get_object("bouquets_tree_store")
-        self.__status_bar = builder.get_object("status_bar")
-        self.__profile_label = builder.get_object("profile_label")
-        self.__status_bar.push(0, "Current IP: " + self.__options.get(self.__profile).get("host"))
-        self.__profile_label.set_text("Enigma2 v.4" if Profile(self.__profile) is Profile.ENIGMA_2 else "Neutrino-MP")
+            self._main_window.resize(*main_window_size)
+        self._services_view = builder.get_object("services_tree_view")
+        self._fav_view = builder.get_object("fav_tree_view")
+        self._bouquets_view = builder.get_object("bouquets_tree_view")
+        self._fav_model = builder.get_object("fav_list_store")
+        self._services_model = builder.get_object("services_list_store")
+        self._bouquets_model = builder.get_object("bouquets_tree_store")
+        self._status_bar = builder.get_object("status_bar")
+        self._player_frame = builder.get_object("player_frame")
+        self._player_drawing_area = builder.get_object("player_drawing_area")
+        # enabling events for the drawing area
+        self._player_drawing_area.set_events(Gdk.ModifierType.BUTTON1_MASK)
+        self._drawing_area_xid = None
+        self._main_window_box = builder.get_object("main_window_box")
+        self._fav_iptv_mode_popup_item = builder.get_object("fav_iptv_mode_popup_item")
+        self._profile_label = builder.get_object("profile_label")
+        self._ip_label = builder.get_object("ip_label")
+        self._ip_label.set_text(self._options.get(self._profile).get("host"))
+        self.update_profile_label()
         # dynamically active elements depending on the selected view
-        self.__tool_elements = {k: builder.get_object(k) for k in self.__DYNAMIC_ELEMENTS}
-        self.__picons_download_tool_button = builder.get_object("picons_download_tool_button")
-        self.__cas_label = builder.get_object("cas_label")
-        self.__fav_count_label = builder.get_object("fav_count_label")
-        self.__bouquets_count_label = builder.get_object("bouquets_count_label")
-        self.__tv_count_label = builder.get_object("tv_count_label")
-        self.__radio_count_label = builder.get_object("radio_count_label")
-        self.__data_count_label = builder.get_object("data_count_label")
-        self.__fav_edit_marker_popup_item = builder.get_object("fav_edit_marker_popup_item")
-        self.__search_info_bar = builder.get_object("search_info_bar")
-        # Filter
-        self.__services_model_filter = builder.get_object("services_model_filter")
-        self.__services_model_filter.set_visible_func(self.services_filter_function)
-        self.__filter_entry = builder.get_object("filter_entry")
-        self.__filter_info_bar = builder.get_object("filter_info_bar")
+        self._tool_elements = {k: builder.get_object(k) for k in self._DYNAMIC_ELEMENTS}
+        self._picons_download_tool_button = builder.get_object("picons_download_tool_button")
+        self._cas_label = builder.get_object("cas_label")
+        self._fav_count_label = builder.get_object("fav_count_label")
+        self._bouquets_count_label = builder.get_object("bouquets_count_label")
+        self._tv_count_label = builder.get_object("tv_count_label")
+        self._radio_count_label = builder.get_object("radio_count_label")
+        self._data_count_label = builder.get_object("data_count_label")
         self.init_drag_and_drop()  # drag and drop
         # Force ctrl press event for view. Multiple selections in lists only with Space key(as in file managers)!!!
-        self.__services_view.connect("key-press-event", self.force_ctrl)
-        self.__fav_view.connect("key-press-event", self.force_ctrl)
+        self._services_view.connect("key-press-event", self.force_ctrl)
+        self._fav_view.connect("key-press-event", self.force_ctrl)
         # Clipboard
-        self.__clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        self.__main_window.show()
+        self._clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        # Wait dialog
+        self._wait_dialog = WaitDialog(self._main_window)
+        # Filter
+        self._services_model_filter = builder.get_object("services_model_filter")
+        self._services_model_filter.set_visible_func(self.services_filter_function)
+        self._filter_entry = builder.get_object("filter_entry")
+        self._filter_info_bar = builder.get_object("filter_info_bar")
+        # Search
+        self._search_info_bar = builder.get_object("search_info_bar")
+        self._search_provider = SearchProvider((self._services_view, self._fav_view, self._bouquets_view),
+                                               builder.get_object("search_down_button"),
+                                               builder.get_object("search_up_button"))
+        self._main_window.show()
 
     def init_drag_and_drop(self):
         """ Enable drag and drop """
         target = []
-        self.__services_view.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, target, Gdk.DragAction.COPY)
-        self.__fav_view.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, target,
-                                                 Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
-        self.__fav_view.enable_model_drag_dest(target, Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
-        self.__fav_view.drag_dest_set_target_list(None)
-        self.__fav_view.drag_source_set_target_list(None)
-        self.__fav_view.drag_dest_add_text_targets()
-        self.__fav_view.drag_source_add_text_targets()
-        self.__services_view.drag_source_set_target_list(None)
-        self.__services_view.drag_source_add_text_targets()
+        self._services_view.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, target, Gdk.DragAction.COPY)
+        self._fav_view.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, target,
+                                                Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
+        self._fav_view.enable_model_drag_dest(target, Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
+        self._fav_view.drag_dest_set_target_list(None)
+        self._fav_view.drag_source_set_target_list(None)
+        self._fav_view.drag_dest_add_text_targets()
+        self._fav_view.drag_source_add_text_targets()
+        self._services_view.drag_source_set_target_list(None)
+        self._services_view.drag_source_add_text_targets()
 
     def force_ctrl(self, view, event):
         """ Function for force ctrl press event for view """
         event.state |= Gdk.ModifierType.CONTROL_MASK
 
+    @run_idle
     def on_quit(self, *args):
         """  Called before app quit """
-        write_config(self.__options)  # storing current config
+        write_config(self._options)  # storing current config
+        if self._player:
+            self._player.stop()
+            self._player.release()
         Gtk.main_quit()
 
     def on_resize(self, window):
         """ Stores new size properties for app window after resize """
-        self.__options["window_size"] = window.get_size()
+        self._options["window_size"] = window.get_size()
 
     def on_up(self, item):
         self.move_items(Gdk.KEY_Up)
@@ -188,46 +241,38 @@ class MainAppWindow:
         self.move_items(Gdk.KEY_Down)
 
     def on_about_app(self, item):
-        show_dialog(DialogType.ABOUT, self.__main_window)
+        show_dialog(DialogType.ABOUT, self._main_window)
 
     def move_items(self, key):
         """ Move items in fav or bouquets tree view """
-        if self.__services_view.is_focus():
+        if self._services_view.is_focus():
             return
-        elif self.__fav_view.is_focus():
-            move_items(key, self.__fav_view)
-        elif self.__bouquets_view and key not in (Gdk.KEY_Page_Up, Gdk.KEY_Page_Down):
-            move_items(key, self.__bouquets_view)
+        move_items(key, self._fav_view if self._fav_view.is_focus() else self._bouquets_view)
 
     def on_cut(self, view):
         for row in tuple(self.on_delete(view)):
-            self.__rows_buffer.append(row)
+            self._rows_buffer.append(row)
 
     def on_copy(self, view):
         model, paths = view.get_selection().get_selected_rows()
         itrs = [model.get_iter(path) for path in paths]
-        rows = []
-        for in_itr in itrs:
-            v1, v2, v3, v4, v5, v6, v7, v8 = model.get(in_itr, 2, 3, 4, 5, 7, 16, 18, 8)
-            rows.append((0, v1, v2, v3, v4, v5, v6, v7, v8))
-        self.__rows_buffer.extend(rows)
+        rows = [(0, *model.get(in_itr, 2, 3, 4, 5, 7, 16, 18, 8)) for in_itr in itrs]
+        self._rows_buffer.extend(rows)
 
     def on_paste(self, view):
         selection = view.get_selection()
         dest_index = 0
-        bq_selected = self.is_bouquet_selected()
-
+        bq_selected = self.check_bouquet_selection()
         if not bq_selected:
-            show_dialog(DialogType.ERROR, self.__main_window, "Error. No bouquet is selected!")
             return
 
-        fav_bouquet = self.__bouquets[bq_selected]
+        fav_bouquet = self._bouquets[bq_selected]
         model, paths = selection.get_selected_rows()
 
         if paths:
             dest_index = int(paths[0][0])
 
-        for row in self.__rows_buffer:
+        for row in self._rows_buffer:
             dest_index += 1
             model.insert(dest_index, row)
             fav_bouquet.insert(dest_index, row[-1])
@@ -235,37 +280,37 @@ class MainAppWindow:
         if model.get_name() == self._FAV_LIST_NAME:
             self.update_fav_num_column(model)
 
-        self.__rows_buffer.clear()
+        self._rows_buffer.clear()
         self.on_view_focus(view, None)
 
-    def on_edit(self, view):
+    def on_rename(self, view):
         model = get_base_model(view.get_model())
         name = model.get_name()
         if name == self._BOUQUETS_LIST_NAME:
             self.on_bouquets_edit(view)
             # edit(view, self.__main_window, ViewTarget.BOUQUET)
         elif name == self._FAV_LIST_NAME:
-            edit(view, self.__main_window, ViewTarget.FAV, service_view=self.__services_view, channels=self.__services)
+            rename(view, self._main_window, ViewTarget.FAV, service_view=self._services_view,
+                   channels=self._services)
         elif name == self._SERVICE_LIST_NAME:
-            edit(view, self.__main_window, ViewTarget.SERVICES, fav_view=self.__fav_view, channels=self.__services)
+            rename(view, self._main_window, ViewTarget.SERVICES, fav_view=self._fav_view, channels=self._services)
 
     def on_delete(self, item):
         """ Delete selected items from views
 
             returns deleted rows list!
         """
-        for view in [self.__services_view, self.__fav_view, self.__bouquets_view]:
+        for view in [self._services_view, self._fav_view, self._bouquets_view]:
             if view.is_focus():
                 selection = view.get_selection()
                 model, paths = selection.get_selected_rows()
                 model_name = get_base_model(model).get_name()
                 itrs = [model.get_iter(path) for path in paths]
                 rows = [model[in_itr][:] for in_itr in itrs]
-                bq_selected = self.is_bouquet_selected()
+                bq_selected = self.get_selected_bouquet()
                 fav_bouquet = None
-
                 if bq_selected:
-                    fav_bouquet = self.__bouquets.get(bq_selected, None)
+                    fav_bouquet = self._bouquets.get(bq_selected, None)
 
                 if model_name == self._FAV_LIST_NAME:
                     self.remove_favs(fav_bouquet, itrs, model)
@@ -283,44 +328,50 @@ class MainAppWindow:
         if fav_bouquet:
             for itr in itrs:
                 del fav_bouquet[int(model.get_path(itr)[0])]
-                self.__fav_model.remove(itr)
+                self._fav_model.remove(itr)
         self.update_fav_num_column(model)
 
+    @run_idle
     def delete_services(self, bq_selected, itrs, model, rows):
         """ Deleting services """
-        srv_itrs = [self.__services_model_filter.convert_iter_to_child_iter(
+        srv_itrs = [self._services_model_filter.convert_iter_to_child_iter(
             model.convert_iter_to_child_iter(itr)) for itr in itrs]
         for s_itr in srv_itrs:
-            self.__services_model.remove(s_itr)
+            self._services_model.remove(s_itr)
 
+        srv_ids_to_delete = set()
         for row in rows:
             # There are channels with the same parameters except for the name.
             # None because it can have duplicates! Need fix
             fav_id = row[-2]
-            for bq in self.__bouquets:
-                services = self.__bouquets[bq]
+            for bq in self._bouquets:
+                services = self._bouquets[bq]
                 if services:
                     with suppress(ValueError):
                         services.remove(fav_id)
-            self.__services.pop(fav_id, None)
-        self.__fav_model.clear()
+                        srv_ids_to_delete.add(fav_id)
+            self._services.pop(fav_id, None)
 
-        if bq_selected:
-            self.update_bouquet_channels(self.__fav_model, None, bq_selected)
+        for f_itr in filter(lambda r: r[7] in srv_ids_to_delete, self._fav_model):
+            self._fav_model.remove(f_itr.iter)
+        self.update_fav_num_column(self._fav_model)
 
     def delete_bouquets(self, itrs, model, bouquet):
         """ Deleting bouquets """
+        if len(itrs) == 1 and len(model.get_path(itrs[0])) < 2:
+            show_dialog(DialogType.ERROR, self._main_window, "This item is not allowed to be removed!")
+            return
+
         for itr in itrs:
             if len(model.get_path(itr)) < 2:
-                show_dialog(DialogType.ERROR, self.__main_window, "This item is not allowed to be removed!")
-                return
-            else:
-                self.__bouquets.pop(bouquet)
-                self.__fav_model.clear()
-                self.__bouquets_model.remove(itr)
+                continue
+            row = model[itr][:]
+            self._bouquets.pop("{}:{}".format(row[0], row[3]))
+            self._fav_model.clear()
+            self._bouquets_model.remove(itr)
 
     def get_bouquet_file_name(self, bouquet):
-        bouquet_file_name = "{}userbouquet.{}.{}".format(self.__options.get(self.__profile).get("data_dir_path"),
+        bouquet_file_name = "{}userbouquet.{}.{}".format(self._options.get(self._profile).get("data_dir_path"),
                                                          *bouquet.split(":"))
         return bouquet_file_name
 
@@ -331,22 +382,22 @@ class MainAppWindow:
         if paths:
             itr = model.get_iter(paths[0])
             bq_type = model.get_value(itr, 3)
-
             bq_name = "bouquet"
             count = 0
             key = "{}:{}".format(bq_name, bq_type)
             #  Generating name of new bouquet
-            while key in self.__bouquets:
+            while key in self._bouquets:
                 count += 1
                 bq_name = "bouquet{}".format(count)
                 key = "{}:{}".format(bq_name, bq_type)
 
-            response = show_dialog(DialogType.INPUT, self.__main_window, bq_name)
+            response = show_dialog(DialogType.INPUT, self._main_window, bq_name)
             if response == Gtk.ResponseType.CANCEL:
                 return
 
             bq = response, None, None, bq_type
             key = "{}:{}".format(response, bq_type)
+            self._current_bq_name = response
 
             if model.iter_n_children(itr):  # parent
                 ch_itr = model.insert(itr, 0, bq)
@@ -355,22 +406,22 @@ class MainAppWindow:
                 p_itr = model.iter_parent(itr)
                 it = model.insert(p_itr, int(model.get_path(itr)[1]) + 1, bq) if p_itr else model.append(itr, bq)
                 scroll_to(model.get_path(it), view, paths)
-            self.__bouquets[key] = []
+            self._bouquets[key] = []
 
     def on_tool_edit(self, item):
         """ Edit tool bar button """
-        if self.__services_view.is_focus():
-            self.on_edit(self.__services_view)
-        elif self.__fav_view.is_focus():
-            self.on_edit(self.__fav_view)
-        elif self.__bouquets_view.is_focus():
-            self.on_edit(self.__bouquets_view)
+        if self._services_view.is_focus():
+            self.on_service_edit(self._services_view)
+        elif self._fav_view.is_focus():
+            self.on_service_edit(self._fav_view)
+        elif self._bouquets_view.is_focus():
+            self.on_rename(self._bouquets_view)
 
     def on_bouquets_edit(self, view):
         """ Rename bouquets """
-        bq_selected = self.is_bouquet_selected()
+        bq_selected = self.get_selected_bouquet()
         if not bq_selected:
-            show_dialog(DialogType.ERROR, self.__main_window, "This item is not allowed to edit!")
+            show_dialog(DialogType.ERROR, self._main_window, "This item is not allowed to edit!")
             return
 
         model, paths = view.get_selection().get_selected_rows()
@@ -378,19 +429,19 @@ class MainAppWindow:
         if paths:
             itr = model.get_iter(paths[0])
             bq_name, bq_type = model.get(itr, 0, 3)
-            response = show_dialog(DialogType.INPUT, self.__main_window, bq_name)
+            response = show_dialog(DialogType.INPUT, self._main_window, bq_name)
             if response == Gtk.ResponseType.CANCEL:
                 return
 
             model.set_value(itr, 0, response)
-            self.__bouquets["{}:{}".format(response, bq_type)] = self.__bouquets.pop("{}:{}".format(bq_name, bq_type))
+            self._bouquets["{}:{}".format(response, bq_type)] = self._bouquets.pop("{}:{}".format(bq_name, bq_type))
 
     def on_to_fav_move(self, view):
         """ Move items from app to fav list """
         selection = self.get_selection(view)
 
         if selection:
-            self.receive_selection(view=self.__fav_view, drop_info=None, data=selection)
+            self.receive_selection(view=self._fav_view, drop_info=None, data=selection)
 
     def get_selection(self, view):
         """ Creates a string from the iterators of the selected rows """
@@ -403,10 +454,8 @@ class MainAppWindow:
 
     def receive_selection(self, *, view, drop_info, data):
         """  Update fav view  after data received  """
-        bq_selected = self.is_bouquet_selected()
-
+        bq_selected = self.check_bouquet_selection()
         if not bq_selected:
-            show_dialog(DialogType.ERROR, self.__main_window, "Error. No bouquet is selected!")
             return
 
         model = get_base_model(view.get_model())
@@ -422,32 +471,32 @@ class MainAppWindow:
         itrs = itr_str.split(",")
 
         try:
-            fav_bouquet = self.__bouquets[bq_selected]
+            fav_bouquet = self._bouquets[bq_selected]
 
             if source == self._SERVICE_LIST_NAME:
-                ext_model = self.__services_view.get_model()
+                ext_model = self._services_view.get_model()
                 ext_itrs = [ext_model.get_iter_from_string(itr) for itr in itrs]
                 ext_rows = [ext_model[ext_itr][:] for ext_itr in ext_itrs]
                 dest_index -= 1
                 for ext_row in ext_rows:
                     dest_index += 1
-                    fav_id = ext_row[-2]
-                    ch = self.__services[fav_id]
+                    fav_id = ext_row[18]
+                    ch = self._services[fav_id]
                     model.insert(dest_index, (0, ch.coded, ch.service, ch.locked, ch.hide,
-                                              ch.service_type, ch.pos, ch.fav_id, ch.picon))
+                                              ch.service_type, ch.pos, ch.fav_id, self._picons.get(ch.picon_id, None)))
                     fav_bouquet.insert(dest_index, ch.fav_id)
             elif source == self._FAV_LIST_NAME:
                 in_itrs = [model.get_iter_from_string(itr) for itr in itrs]
                 in_rows = [model[in_itr][:] for in_itr in in_itrs]
                 for row in in_rows:
                     model.insert(dest_index, row)
-                    fav_bouquet.insert(dest_index, row[4])
+                    fav_bouquet.insert(dest_index, row[7])
                 for in_itr in in_itrs:
                     del fav_bouquet[int(model.get_path(in_itr)[0])]
                     model.remove(in_itr)
             self.update_fav_num_column(model)
         except ValueError as e:
-            self.__status_bar.push(1, getattr(e, "message", repr(e)))
+            self._status_bar.push(1, getattr(e, "message", repr(e)))
 
     def update_fav_num_column(self, model):
         """ Iterate through model and updates values for Num column """
@@ -455,11 +504,11 @@ class MainAppWindow:
 
     def update_bouquet_list(self):
         """ Update bouquet after move items """
-        bq_selected = self.is_bouquet_selected()
+        bq_selected = self.get_selected_bouquet()
         if bq_selected:
-            fav_bouquet = self.__bouquets[bq_selected]
+            fav_bouquet = self._bouquets[bq_selected]
             fav_bouquet.clear()
-            for row in self.__fav_model:
+            for row in self._fav_model:
                 fav_bouquet.append(row[7])
 
     def on_services_tree_view_drag_data_get(self, view, drag_context, data, info, time):
@@ -482,10 +531,10 @@ class MainAppWindow:
     @run_idle
     def on_satellite_editor_show(self, model):
         """ Shows satellites editor dialog """
-        show_satellites_dialog(self.__main_window, self.__options.get(self.__profile))
+        show_satellites_dialog(self._main_window, self._options.get(self._profile))
 
     def on_data_open(self, model):
-        response = show_dialog(DialogType.CHOOSER, self.__main_window, options=self.__options.get(self.__profile))
+        response = show_dialog(DialogType.CHOOSER, self._main_window, options=self._options.get(self._profile))
         if response in (Gtk.ResponseType.CANCEL, Gtk.ResponseType.DELETE_EVENT):
             return
         self.open_data(response)
@@ -493,74 +542,81 @@ class MainAppWindow:
     @run_idle
     def open_data(self, data_path=None):
         """ Opening data and fill views. """
+        self._wait_dialog.show()
         self.clear_current_data()
 
-        data_path = self.__options.get(self.__profile).get("data_dir_path") if data_path is None else data_path
+        data_path = self._options.get(self._profile).get("data_dir_path") if data_path is None else data_path
         try:
             self.append_blacklist(data_path)
             self.append_bouquets(data_path)
             self.append_services(data_path)
-            self.update_services_counts(len(self.__services_model))
+            self.update_services_counts(len(self._services_model))
             self.update_picons()
-            self.__picons_download_tool_button.set_sensitive(len(self.__services_model))
         except FileNotFoundError as e:
-            show_dialog(DialogType.ERROR, self.__main_window, getattr(e, "message", str(e)) +
-                        "\n\nPlease, download files from receiver or setup your path for read data!")
+            show_dialog(DialogType.ERROR, self._main_window, getattr(e, "message", str(e)) + "\n\n" +
+                        get_message("Please, download files from receiver or setup your path for read data!"))
         except SyntaxError as e:
-            show_dialog(DialogType.ERROR, self.__main_window, str(e))
+            show_dialog(DialogType.ERROR, self._main_window, str(e))
+        finally:
+            self._wait_dialog.hide()
 
     def append_blacklist(self, data_path):
         black_list = get_blacklist(data_path)
         if black_list:
-            self.__blacklist.update(black_list)
+            self._blacklist.update(black_list)
 
     def append_bouquets(self, data_path):
-        for bouquet in get_bouquets(data_path, Profile(self.__profile)):
-            parent = self.__bouquets_model.append(None, [bouquet.name, None, None, bouquet.type])
-            for bt in bouquet.bouquets:
-                name, bt_type, locked, hidden = bt.name, bt.type, bt.locked, bt.hidden
-                self.__bouquets_model.append(parent, [name, locked, hidden, bt_type])
-                services = []
-                for srv in bt.services:
-                    fav_id = srv.data
-                    # IPTV and MARKER services
-                    s_type = srv.type
-                    if s_type is BqServiceType.MARKER or s_type is BqServiceType.IPTV:
-                        srv = Service(None, None, None, srv.name, None, None, None, s_type.name, None, None,
-                                      None, None, None, None, None, None, None, srv.num, fav_id, None)
-                        self.__services[fav_id] = srv
-                    services.append(fav_id)
-                self.__bouquets["{}:{}".format(name, bt_type)] = services
+        for bouquet in get_bouquets(data_path, Profile(self._profile)):
+            parent = self._bouquets_model.append(None, [bouquet.name, None, None, bouquet.type])
+            for bq in bouquet.bouquets:
+                self.append_bouquet(bq, parent)
+
+    def append_bouquet(self, bq, parent):
+        name, bt_type, locked, hidden = bq.name, bq.type, bq.locked, bq.hidden
+        self._bouquets_model.append(parent, [name, locked, hidden, bt_type])
+        services = []
+        agr = [None] * 9
+        for srv in bq.services:
+            fav_id = srv.data
+            # IPTV and MARKER services
+            s_type = srv.type
+            if s_type is BqServiceType.MARKER or s_type is BqServiceType.IPTV:
+                icon = IPTV_ICON if s_type is BqServiceType.IPTV else None
+                srv = Service(*agr[0:2], icon, srv.name, *agr[0:3], s_type.name, *agr, srv.num, fav_id, None)
+                self._services[fav_id] = srv
+            services.append(fav_id)
+        self._bouquets["{}:{}".format(name, bt_type)] = services
 
     def append_services(self, data_path):
         try:
-            services = get_services(data_path, Profile(self.__profile))
+            profile = Profile(self._profile)
+            services = get_services(data_path, profile, self.get_format_version() if profile is Profile.ENIGMA_2 else 0)
         except Exception as e:
             print(e)
             log("Append services error: " + str(e))
-            show_dialog(DialogType.ERROR, self.__main_window, "Error opening data!")
+            show_dialog(DialogType.ERROR, self._main_window, "Reading data error!")
         else:
             if services:
                 for srv in services:
                     #  adding channels to dict with fav_id as keys
-                    self.__services[srv.fav_id] = srv
-                    self.__services_model.append(srv)
+                    self._services[srv.fav_id] = srv
+                    self._services_model.append(srv)
 
     def clear_current_data(self):
         """ Clearing current data from lists """
-        self.__bouquets_model.clear()
-        self.__fav_model.clear()
-        self.__services_model.clear()
-        self.__blacklist.clear()
-        self.__services.clear()
-        self.__rows_buffer.clear()
-        self.__bouquets.clear()
+        self._bouquets_model.clear()
+        self._fav_model.clear()
+        self._services_model.clear()
+        self._blacklist.clear()
+        self._services.clear()
+        self._rows_buffer.clear()
+        self._bouquets.clear()
 
     def on_data_save(self, *args):
-        if show_dialog(DialogType.QUESTION, self.__main_window) == Gtk.ResponseType.CANCEL:
+        if show_dialog(DialogType.QUESTION, self._main_window) == Gtk.ResponseType.CANCEL:
             return
 
-        path = self.__options.get(self.__profile).get("data_dir_path")
+        path = self._options.get(self._profile).get("data_dir_path")
         backup_path = path + "backup/"
         os.makedirs(os.path.dirname(backup_path), exist_ok=True)
         # backup files in data dir(skipping dirs and satellites.xml)
@@ -568,7 +624,7 @@ class MainAppWindow:
             shutil.move(os.path.join(path, file), backup_path + file)
 
         bouquets = []
-        services_model = self.__services_view.get_model()
+        services_model = self._services_view.get_model()
 
         def parse_bouquets(model, b_path, itr):
             bqs = None
@@ -578,27 +634,26 @@ class MainAppWindow:
                 for num in range(num_of_children):
                     bq_itr = model.iter_nth_child(itr, num)
                     bq_name, locked, hidden, bq_type = model.get(bq_itr, 0, 1, 2, 3)
-                    favs = self.__bouquets["{}:{}".format(bq_name, bq_type)]
-                    bq = Bouquet(bq_name, bq_type, [self.__services.get(f_id, None) for f_id in favs], locked, hidden)
+                    favs = self._bouquets["{}:{}".format(bq_name, bq_type)]
+                    bq = Bouquet(bq_name, bq_type, [self._services.get(f_id, None) for f_id in favs], locked, hidden)
                     bqs.append(bq)
             if len(b_path) == 1:
-                v1, v2 = model.get(itr, 0, 3)
-                bouquets.append(Bouquets(v1, v2, bqs if bqs else []))
+                bouquets.append(Bouquets(*model.get(itr, 0, 3), bqs if bqs else []))
 
-        profile = Profile(self.__profile)
+        profile = Profile(self._profile)
         # Getting bouquets
-        self.__bouquets_view.get_model().foreach(parse_bouquets)
+        self._bouquets_view.get_model().foreach(parse_bouquets)
         write_bouquets(path, bouquets, profile)
         # Getting services
         services = [Service(*row[:]) for row in services_model]
-        write_services(path, services, profile)
+        write_services(path, services, profile, self.get_format_version() if profile is Profile.ENIGMA_2 else 0)
         # removing bouquet files
         if profile is Profile.ENIGMA_2:
             # blacklist
-            write_blacklist(path, self.__blacklist)
+            write_blacklist(path, self._blacklist)
 
     def on_services_selection(self, model, path, column):
-        self.delete_selection(self.__fav_view)
+        self.delete_selection(self._fav_view, self._bouquets_view)
         self.update_service_bar(model, path)
 
     def update_service_bar(self, model, path):
@@ -607,73 +662,88 @@ class MainAppWindow:
         if not cas:
             return
         cas_values = list(filter(lambda val: val.startswith("C:"), cas.split(",")))
-        self.__cas_label.set_text(",".join(map(str, sorted(set(CAS.get(val, def_val) for val in cas_values)))))
+        self._cas_label.set_text(",".join(map(str, sorted(set(CAS.get(val, def_val) for val in cas_values)))))
 
     def on_fav_selection(self, model, path, column):
-        self.delete_selection(self.__services_view)
+        self.delete_selection(self._services_view, self._bouquets_view)
 
     def on_bouquets_selection(self, model, path, column):
-        self.__fav_model.clear()
+        self._current_bq_name = model[path][0] if len(path) > 1 else None
+        self._fav_model.clear()
 
-        if self.__bouquets_view.row_expanded(path):
-            self.__bouquets_view.collapse_row(path)
+        if self._bouquets_view.row_expanded(path):
+            self._bouquets_view.collapse_row(path)
         else:
-            self.__bouquets_view.expand_row(path, column)
+            self._bouquets_view.expand_row(path, column)
 
         if len(path) > 1:
-            self.delete_selection(self.__services_view)
-            self.update_bouquet_channels(model, path)
+            self.delete_selection(self._services_view)
+            self.update_bouquet_services(model, path)
 
-    def update_bouquet_channels(self, model, path, bq_key=None):
-        """ Updates list of bouquet channels """
+    @run_idle
+    def update_bouquet_services(self, model, path, bq_key=None):
+        """ Updates list of bouquet services """
         tree_iter = None
         if path:
             tree_iter = model.get_iter(path)
 
         key = bq_key if bq_key else "{}:{}".format(*model.get(tree_iter, 0, 3))
-        services = self.__bouquets[key]
+        services = self._bouquets.get(key, None)
+        if not services:
+            return
 
-        for num, ch_id in enumerate(services):
-            channel = self.__services.get(ch_id, None)
-            if channel:
-                self.__fav_model.append((num + 1, channel.coded, channel.service, channel.locked,
-                                         channel.hide, channel.service_type, channel.pos, channel.fav_id,
-                                         self.__picons.get(channel.picon_id, None)))
+        for num, srv_id in enumerate(services):
+            service = self._services.get(srv_id, None)
+            if service:
+                self._fav_model.append((num + 1, service.coded, service.service, service.locked,
+                                        service.hide, service.service_type, service.pos, service.fav_id,
+                                        self._picons.get(service.picon_id, None)))
 
-    def is_bouquet_selected(self):
-        """ Checks whether the bouquet is selected
+    def check_bouquet_selection(self):
+        """ checks and returns bouquet if selected """
+        bq_selected = self.get_selected_bouquet()
 
-            returns 'name:type' of selected bouquet or False
-        """
-        model, path = self.__bouquets_view.get_selection().get_selected_rows()
+        if not bq_selected:
+            show_dialog(DialogType.ERROR, self._main_window, "Error. No bouquet is selected!")
+            return
 
-        if not path or len(path[0]) < 2:
+        if Profile(self._profile) is Profile.NEUTRINO_MP and bq_selected.endswith(BqType.WEBTV.value):
+            show_dialog(DialogType.ERROR, self._main_window, "Operation not allowed in this context!")
+            return
+
+        return bq_selected
+
+    def get_selected_bouquet(self):
+        """  returns 'name:type' of last selected bouquet or False  """
+        if self._current_bq_name is None:
             return False
 
-        return "{}:{}".format(*model.get(model.get_iter(path), 0, 3))
+        for row in self._bouquets_model:
+            chs_rows = row.iterchildren()
+            for ch_row in chs_rows:
+                name = ch_row[0]
+                if name == self._current_bq_name:
+                    return "{}:{}".format(name, ch_row[3])
+        return False
 
-    @run_idle
     def delete_selection(self, view, *args):
         """ Used for clear selection on given view(s) """
-        views = [view]
-        if args:
-            for v in args:
-                views.append(v)
-        for v in views:
+        for v in [view, *args]:
             v.get_selection().unselect_all()
 
     @run_idle
     def on_preferences(self, item):
-        response = show_settings_dialog(self.__main_window, self.__options)
+        response = show_settings_dialog(self._main_window, self._options)
         if response != Gtk.ResponseType.CANCEL:
-            profile = self.__options.get("profile")
-            self.__status_bar.push(0, "Current IP: " + self.__options.get(profile).get("host"))
-            if profile != self.__profile:
-                self.__profile_label.set_text("Enigma 2 v.4" if Profile(profile) is Profile.ENIGMA_2 else "Neutrino-MP")
-                self.__profile = profile
+            profile = self._options.get("profile")
+            self._ip_label.set_text(self._options.get(profile).get("host"))
+
+            if profile != self._profile:
+                self._profile = profile
                 self.clear_current_data()
                 self.update_services_counts()
-                self.__picons_download_tool_button.set_sensitive(len(self.__services_model))
+
+            self.update_profile_label()
 
     def on_tree_view_key_release(self, view, event):
         """  Handling  keystrokes  """
@@ -685,9 +755,7 @@ class MainAppWindow:
 
         if key == Gdk.KEY_Delete:
             self.on_delete(view)
-        elif ctrl and key in (Gdk.KEY_Up, Gdk.KEY_Page_Up, Gdk.KEY_KP_Page_Up):  # KEY_KP_Page_Up for laptop!
-            self.move_items(key)
-        elif ctrl and key in (Gdk.KEY_Down, Gdk.KEY_Page_Down, Gdk.KEY_KP_Page_Down):
+        elif ctrl and key in MOVE_KEYS:
             self.move_items(key)
         elif model_name == self._FAV_LIST_NAME and key == Gdk.KEY_Control_L or key == Gdk.KEY_Control_R:
             self.update_fav_num_column(model)
@@ -711,83 +779,105 @@ class MainAppWindow:
             self.on_locked(None)
         elif ctrl and key == Gdk.KEY_h or key == Gdk.KEY_H:
             self.on_hide(None)
-        elif ctrl and key == Gdk.KEY_E or key == Gdk.KEY_e or key == Gdk.KEY_F2:
-            self.on_edit(view)
+        elif ctrl and key == Gdk.KEY_R or key == Gdk.KEY_r or key == Gdk.KEY_F2:
+            self.on_rename(view)
+        elif ctrl and key == Gdk.KEY_E or key == Gdk.KEY_e:
+            if model_name == self._BOUQUETS_LIST_NAME:
+                self.on_rename(view)
+                return
+            self.on_service_edit(view)
         elif key == Gdk.KEY_Left or key == Gdk.KEY_Right:
             view.do_unselect_all(view)
+        elif (key == Gdk.KEY_P or key == Gdk.KEY_p) and model_name == self._FAV_LIST_NAME:
+            self._iptv_preview_mode = not self._iptv_preview_mode
+            self._fav_iptv_mode_popup_item.set_active(self._iptv_preview_mode)
+            self.on_fav_iptv_mode(self._fav_iptv_mode_popup_item)
+        elif (key == Gdk.KEY_Return or key == Gdk.KEY_KP_Enter) and model_name == self._FAV_LIST_NAME:
+            if self._iptv_preview_mode:
+                self.on_play_stream()
 
     def on_download(self, item):
-        show_download_dialog(transient=self.__main_window,
-                             options=self.__options.get(self.__profile),
+        show_download_dialog(transient=self._main_window,
+                             options=self._options.get(self._profile),
                              open_data=self.open_data,
-                             profile=Profile(self.__profile))
+                             profile=Profile(self._profile))
 
-    @run_idle
     def on_view_focus(self, view, focus_event):
-        profile = Profile(self.__profile)
+        profile = Profile(self._profile)
         model = get_base_model(view.get_model())
         model_name = model.get_name()
         not_empty = len(model) > 0  # if  > 0 model has items
 
         if model_name == self._BOUQUETS_LIST_NAME:
-            for elem in self.__tool_elements:
-                self.__tool_elements[elem].set_sensitive(False)
+            for elem in self._tool_elements:
+                self._tool_elements[elem].set_sensitive(False)
             for elem in self._BOUQUET_ELEMENTS:
-                self.__tool_elements[elem].set_sensitive(not_empty)
+                self._tool_elements[elem].set_sensitive(not_empty)
             if profile is Profile.NEUTRINO_MP:
                 for elem in self._LOCK_HIDE_ELEMENTS:
-                    self.__tool_elements[elem].set_sensitive(not_empty)
+                    self._tool_elements[elem].set_sensitive(not_empty)
         else:
             is_service = model_name == self._SERVICE_LIST_NAME
+            bq_selected = False
+            if model_name == self._FAV_LIST_NAME:
+                bq_selected = self.get_selected_bouquet()
+                if profile is Profile.NEUTRINO_MP and bq_selected:
+                    name, bq_type = bq_selected.split(":")
+                    bq_selected = BqType(bq_type) is BqType.WEBTV
+
             for elem in self._FAV_ELEMENTS:
                 if elem in ("paste_tool_button", "paste_menu_item", "fav_paste_popup_item"):
-                    self.__tool_elements[elem].set_sensitive(not is_service and self.__rows_buffer)
-                elif elem in self._FAV_ONLY_ELEMENTS:
+                    self._tool_elements[elem].set_sensitive(not is_service and self._rows_buffer)
+                elif elem in self._FAV_ENIGMA_ELEMENTS:
                     if profile is Profile.ENIGMA_2:
-                        self.__tool_elements[elem].set_sensitive(self.is_bouquet_selected() and not is_service)
+                        self._tool_elements[elem].set_sensitive(bq_selected and not is_service)
+                elif elem in self._FAV_M3U_ELEMENTS:
+                    self._tool_elements[elem].set_sensitive(bq_selected and not is_service)
                 else:
-                    self.__tool_elements[elem].set_sensitive(not_empty and not is_service)
+                    self._tool_elements[elem].set_sensitive(not_empty and not is_service)
             for elem in self._SERVICE_ELEMENTS:
-                self.__tool_elements[elem].set_sensitive(not_empty and is_service)
+                self._tool_elements[elem].set_sensitive(not_empty and is_service)
             for elem in self._BOUQUET_ELEMENTS:
-                self.__tool_elements[elem].set_sensitive(False)
+                self._tool_elements[elem].set_sensitive(False)
             for elem in self._LOCK_HIDE_ELEMENTS:
-                self.__tool_elements[elem].set_sensitive(not_empty and profile is Profile.ENIGMA_2)
+                self._tool_elements[elem].set_sensitive(not_empty and profile is Profile.ENIGMA_2)
 
         for elem in self._COMMONS_ELEMENTS:
-            self.__tool_elements[elem].set_sensitive(not_empty)
+            self._tool_elements[elem].set_sensitive(not_empty)
+
+        self._tool_elements["services_add_new_popup_item"].set_sensitive(len(self._bouquets_model))
 
     def on_hide(self, item):
-        self.set_service_flags(FLAG.HIDE)
+        self.set_service_flags(Flag.HIDE)
 
     def on_locked(self, item):
-        self.set_service_flags(FLAG.LOCK)
+        self.set_service_flags(Flag.LOCK)
 
     def set_service_flags(self, flag):
-        profile = Profile(self.__profile)
-        bq_selected = self.is_bouquet_selected()
+        profile = Profile(self._profile)
+        bq_selected = self.get_selected_bouquet()
         if profile is Profile.ENIGMA_2:
-            if set_flags(flag, self.__services_view, self.__fav_view, self.__services, self.__blacklist):
+            if set_flags(flag, self._services_view, self._fav_view, self._services, self._blacklist):
                 if bq_selected:
-                    self.__fav_model.clear()
-                    self.update_bouquet_channels(self.__fav_model, None, bq_selected)
+                    self._fav_model.clear()
+                    self.update_bouquet_services(self._fav_model, None, bq_selected)
         elif profile is Profile.NEUTRINO_MP:
             if bq_selected:
-                model, path = self.__bouquets_view.get_selection().get_selected()
-                value = model.get_value(path, 1 if flag is FLAG.LOCK else 2)
-                value = None if value else LOCKED_ICON if flag is FLAG.LOCK else HIDE_ICON
-                model.set_value(path, 1 if flag is FLAG.LOCK else 2, value)
+                model, path = self._bouquets_view.get_selection().get_selected()
+                value = model.get_value(path, 1 if flag is Flag.LOCK else 2)
+                value = None if value else LOCKED_ICON if flag is Flag.LOCK else HIDE_ICON
+                model.set_value(path, 1 if flag is Flag.LOCK else 2, value)
 
     @run_idle
     def on_model_changed(self, model, path, itr=None):
         model_name = model.get_name()
 
         if model_name == self._FAV_LIST_NAME:
-            self.__fav_count_label.set_text(str(len(model)))
+            self._fav_count_label.set_text(str(len(model)))
         elif model_name == self._SERVICE_LIST_NAME:
             self.update_services_counts(len(model))
         elif model_name == self._BOUQUETS_LIST_NAME:
-            self.__bouquets_count_label.set_text(str(len(self.__bouquets.keys())))
+            self._bouquets_count_label.set_text(str(len(self._bouquets.keys())))
 
     @lru_cache(maxsize=1)
     def update_services_counts(self, size=0):
@@ -796,118 +886,267 @@ class MainAppWindow:
         radio_count = 0
         data_count = 0
 
-        for ch in self.__services.values():
+        for ch in self._services.values():
             ch_type = ch.service_type
-            if ch_type in ("TV", "TV (HD)"):
+            if ch_type in self._TV_TYPES:
                 tv_count += 1
             elif ch_type == "Radio":
                 radio_count += 1
             elif ch_type == "Data":
                 data_count += 1
 
-        self.__tv_count_label.set_text(str(tv_count))
-        self.__radio_count_label.set_text(str(radio_count))
-        self.__data_count_label.set_text(str(data_count))
+        self._tv_count_label.set_text(str(tv_count))
+        self._radio_count_label.set_text(str(radio_count))
+        self._data_count_label.set_text(str(data_count))
 
     def on_import_m3u(self, item):
         """ Imports iptv from m3u files. """
-        response = get_chooser_dialog(self.__main_window, self.__options.get(self.__profile), "*.m3u", "m3u files")
+        response = get_chooser_dialog(self._main_window, self._options.get(self._profile), "*.m3u", "m3u files")
         if response == Gtk.ResponseType.CANCEL:
             return
 
         if not str(response).endswith("m3u"):
-            show_dialog(DialogType.ERROR, self.__main_window, text="No m3u file is selected!")
+            show_dialog(DialogType.ERROR, self._main_window, text="No m3u file is selected!")
             return
 
-        channels = parse_m3u(response)
-        bq_selected = self.is_bouquet_selected()
+        channels = parse_m3u(response, Profile(self._profile))
+        bq_selected = self.get_selected_bouquet()
         if channels and bq_selected:
-            bq_services = self.__bouquets.get(bq_selected)
-            self.__fav_model.clear()
+            bq_services = self._bouquets.get(bq_selected)
+            self._fav_model.clear()
             for ch in channels:
-                self.__services[ch.fav_id] = ch
+                self._services[ch.fav_id] = ch
                 bq_services.append(ch.fav_id)
-            self.update_bouquet_channels(self.__fav_model, None, bq_selected)
+            self.update_bouquet_services(self._fav_model, None, bq_selected)
+
+    def on_iptv(self, item):
+        response = IptvDialog(self._main_window,
+                              self._fav_view,
+                              self._services,
+                              self._bouquets.get(self.get_selected_bouquet(), None),
+                              Profile(self._profile),
+                              Action.ADD).show()
+        if response != Gtk.ResponseType.CANCEL:
+            self.update_fav_num_column(self._fav_model)
 
     def on_insert_marker(self, view):
         """ Inserts marker into bouquet services list. """
-        insert_marker(view, self.__bouquets, self.is_bouquet_selected(), self.__services, self.__main_window)
-        self.update_fav_num_column(self.__fav_model)
+        insert_marker(view, self._bouquets, self.get_selected_bouquet(), self._services, self._main_window)
+        self.update_fav_num_column(self._fav_model)
 
     def on_edit_marker(self, view):
-        edit_marker(view, self.__bouquets, self.is_bouquet_selected(), self.__services, self.__main_window)
+        edit_marker(view, self._bouquets, self.get_selected_bouquet(), self._services, self._main_window)
+
+    def on_fav_iptv_mode(self, item):
+        self._iptv_preview_mode = item.get_active()
+        self._player_frame.set_visible(self._iptv_preview_mode)
+        if not self._iptv_preview_mode:
+            self.on_player_stop(None)
+
+    def on_fav_press(self, menu, event):
+        self.on_view_popup_menu(menu, event)
+        if self._iptv_preview_mode and event.get_event_type() == Gdk.EventType.DOUBLE_BUTTON_PRESS:
+            self.on_play_stream()
 
     @run_idle
-    def on_fav_popup(self, view, event):
-        model, paths = view.get_selection().get_selected_rows()
-        self.__fav_edit_marker_popup_item.set_sensitive(
-            len(paths) == 1 and model.get_value(model.get_iter(paths[0]), 5) == BqServiceType.MARKER.name)
+    def on_play_stream(self):
+        path, column = self._fav_view.get_cursor()
+        if path:
+            row = self._fav_model[path][:]
+            if row[5] == BqServiceType.IPTV.value:
+                url = None
+                profile = Profile(self._profile)
+                data = row[7].split(":" if profile is Profile.ENIGMA_2 else "::")
+                if profile is Profile.ENIGMA_2:
+                    data = list(filter(lambda x: "http" in x, data))
+                if data:
+                    url = data[0]
+                    url = url.replace("%3a", ":") if profile is Profile.ENIGMA_2 else url
+                if not url:
+                    return
+
+                self.on_player_stop(None)
+
+                if not self._player:
+                    try:
+                        self._player = Player.get_vlc_instance().media_player_new()
+                    except (NameError, AttributeError):
+                        show_dialog(DialogType.ERROR, self._main_window, "No VLC is found. Check that it is installed!")
+                    else:
+                        self._player.set_xwindow(self._drawing_area_xid)
+
+                if self._player:
+                    self._player.set_mrl(url)
+                    self._is_played = True
+                    self._player.play()
+
+    def on_player_stop(self, item):
+        if self._player:
+            self._player.stop()
+            self._is_played = False
+
+    def on_player_press(self, area, event):
+        if event.button == Gdk.BUTTON_PRIMARY:
+            if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
+                self._full_screen = not self._full_screen
+                self._main_window.fullscreen() if self._full_screen else self._main_window.unfullscreen()
+            elif event.type == Gdk.EventType.BUTTON_PRESS:
+                if self._player:
+                    self._player.stop() if self._player.is_playing() else self._player.play()
+
+    def on_main_window_state(self, window, event):
+        if event.new_window_state & Gdk.WindowState.FULLSCREEN:
+            if self._main_window_box in window:
+                window.remove(self._main_window_box)
+                self._player_drawing_area.reparent(window)
+                if self._player:
+                    self._player.set_xwindow(self._player_drawing_area.get_window().get_xid())
+        else:
+            if self._player_drawing_area in window:
+                window.remove(self._player_drawing_area)
+                window.add(self._main_window_box)
+                self._player_frame.add(self._player_drawing_area)
+                if self._player:
+                    self._player.set_xwindow(self._player_drawing_area.get_window().get_xid())
+
+    def on_drawing_area_realize(self, widget):
+        self._drawing_area_xid = widget.get_window().get_xid()
 
     def on_locate_in_services(self, view):
-        locate_in_services(view, self.__services_view, self.__main_window)
+        locate_in_services(view, self._services_view, self._main_window)
 
+    @run_idle
     def on_picons_loader_show(self, item):
         ids = {}
-        if Profile(self.__profile) is Profile.ENIGMA_2:
-            for r in self.__services_model:
+        if Profile(self._profile) is Profile.ENIGMA_2:
+            for r in self._services_model:
                 data = r[9].split("_")
                 ids["{}:{}:{}".format(data[3], data[5], data[6])] = r[9]
 
-        dialog = PiconsDialog(self.__main_window, self.__options.get(self.__profile), ids, Profile(self.__profile))
+        dialog = PiconsDialog(self._main_window, self._options, ids, Profile(self._profile))
         dialog.show()
         self.update_picons()
 
     @run_idle
     def on_filter_toggled(self, toggle_button: Gtk.ToggleToolButton):
-        self.__filter_info_bar.set_visible(toggle_button.get_active())
+        self._filter_info_bar.set_visible(toggle_button.get_active())
 
     @run_idle
     def on_filter_changed(self, entry):
-        self.__services_model_filter.refilter()
+        self._services_model_filter.refilter()
 
     def services_filter_function(self, model, iter, data):
-        if self.__services_model_filter is None or self.__services_model_filter == "None":
+        if self._services_model_filter is None or self._services_model_filter == "None":
             return True
         else:
-            return self.__filter_entry.get_text() in str(model.get(iter, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16))
+            return self._filter_entry.get_text() in str(model.get(iter, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16))
 
     def on_search_toggled(self, toggle_button: Gtk.ToggleToolButton):
-        self.__search_info_bar.set_visible(toggle_button.get_active())
+        self._search_info_bar.set_visible(toggle_button.get_active())
+
+    def on_search_down(self, item):
+        self._search_provider.on_search_down()
+
+    def on_search_up(self, item):
+        self._search_provider.on_search_up()
 
     @run_idle
-    def on_search(self, entry, event):
-        search(entry.get_text(),
-               self.__services_view,
-               self.__fav_view,
-               self.__bouquets_view,
-               self.__services,
-               self.__bouquets)
+    def on_search(self, entry):
+        self._search_provider.search(entry.get_text())
+
+    @run_idle
+    def on_service_edit(self, view):
+        model, paths = view.get_selection().get_selected_rows()
+        if is_only_one_item_selected(paths, self._main_window):
+            model_name = get_base_model(model).get_name()
+            if model_name == self._FAV_LIST_NAME:
+                srv_type = model.get_value(model.get_iter(paths), 5)
+                if srv_type == BqServiceType.MARKER.name:
+                    return self.on_rename(view)
+                elif srv_type == BqServiceType.IPTV.name:
+                    return IptvDialog(self._main_window,
+                                      self._fav_view,
+                                      self._services,
+                                      self._bouquets.get(self.get_selected_bouquet(), None),
+                                      Profile(self._profile),
+                                      Action.EDIT).show()
+                self.on_locate_in_services(view)
+
+            dialog = ServiceDetailsDialog(self._main_window,
+                                          self._options,
+                                          self._services_view,
+                                          self._fav_view,
+                                          self._services,
+                                          self._bouquets)
+            dialog.show()
+
+    def on_services_add_new(self, item):
+        dialog = ServiceDetailsDialog(self._main_window,
+                                      self._options,
+                                      self._services_view,
+                                      self._fav_view,
+                                      self._services,
+                                      self._bouquets,
+                                      action=Action.ADD)
+        dialog.show()
 
     @run_idle
     def update_picons(self):
-        update_picons(self.__options.get(self.__profile).get("picons_dir_path"), self.__picons, self.__services_model)
+        update_picons(self._options.get(self._profile).get("picons_dir_path"), self._picons, self._services_model)
 
     def on_assign_picon(self, view):
         assign_picon(self.get_target_view(view),
-                     self.__services_view,
-                     self.__fav_view,
-                     self.__main_window,
-                     self.__picons,
-                     self.__options.get(self.__profile),
-                     self.__services)
+                     self._services_view,
+                     self._fav_view,
+                     self._main_window,
+                     self._picons,
+                     self._options.get(self._profile),
+                     self._services)
 
     def on_remove_picon(self, view):
         remove_picon(self.get_target_view(view),
-                     self.__services_view,
-                     self.__fav_view, self.__picons,
-                     self.__options.get(self.__profile))
+                     self._services_view,
+                     self._fav_view, self._picons,
+                     self._options.get(self._profile))
 
     def on_reference_picon(self, view):
         """ Copying picon id to clipboard """
-        copy_picon_reference(self.get_target_view(view), view, self.__services, self.__clipboard, self.__main_window)
+        copy_picon_reference(self.get_target_view(view), view, self._services, self._clipboard, self._main_window)
 
     def get_target_view(self, view):
         return ViewTarget.SERVICES if Gtk.Buildable.get_name(view) == "services_tree_view" else ViewTarget.FAV
+
+    def on_create_bouquet_for_current_satellite(self, item):
+        self.create_bouquets(BqGenType.SAT)
+
+    def on_create_bouquet_for_each_satellite(self, item):
+        self.create_bouquets(BqGenType.EACH_SAT)
+
+    def on_create_bouquet_for_current_package(self, item):
+        self.create_bouquets(BqGenType.PACKAGE)
+
+    def on_create_bouquet_for_each_package(self, item):
+        self.create_bouquets(BqGenType.EACH_PACKAGE)
+
+    def on_create_bouquet_for_current_type(self, item):
+        self.create_bouquets(BqGenType.TYPE)
+
+    def on_create_bouquet_for_each_type(self, item):
+        self.create_bouquets(BqGenType.EACH_TYPE)
+
+    def create_bouquets(self, g_type):
+        gen_bouquets(self._services_view, self._bouquets_view, self._main_window, g_type, self._TV_TYPES,
+                     Profile(self._profile), self.append_bouquet)
+
+    def update_profile_label(self):
+        profile = Profile(self._profile)
+        if profile is Profile.ENIGMA_2:
+            self._profile_label.set_text("Enigma2 v.{}".format(self.get_format_version()))
+        elif profile is Profile.NEUTRINO_MP:
+            self._profile_label.set_text("Neutrino-MP")
+
+    def get_format_version(self):
+        return 5 if self._options.get(self._profile).get("v5_support", False) else 4
 
 
 def start_app():

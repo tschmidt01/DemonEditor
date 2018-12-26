@@ -1,23 +1,15 @@
 """ This is helper module for ui """
-from enum import Enum
-
 import os
-
 import shutil
 from gi.repository import GdkPixbuf
 
+from app.commons import run_task
 from app.eparser import Service
-from app.eparser.ecommons import FLAG
+from app.eparser.ecommons import Flag, BouquetService, Bouquet, BqType
 from app.eparser.enigma.bouquets import BqServiceType, to_bouquet_id
-from . import Gtk, Gdk, HIDE_ICON, LOCKED_ICON
-from .dialogs import show_dialog, DialogType, get_chooser_dialog
-
-
-class ViewTarget(Enum):
-    """ Used for set target view """
-    BOUQUET = 0
-    FAV = 1
-    SERVICES = 2
+from app.properties import Profile
+from .uicommons import ViewTarget, BqGenType, Gtk, Gdk, HIDE_ICON, LOCKED_ICON
+from .dialogs import show_dialog, DialogType, get_chooser_dialog, WaitDialog
 
 
 # ***************** Markers *******************#
@@ -33,17 +25,16 @@ def insert_marker(view, bouquets, selected_bouquet, channels, parent_window):
         return
 
     # Searching for max num value in all marker services (if empty default = 0)
-    max_num = max(map(lambda num: int(num.data_id, 18),
+    max_num = max(map(lambda num: int(num.data_id, 16),
                       filter(lambda ch: ch.service_type == BqServiceType.MARKER.name, channels.values())), default=0)
-    max_num = '{:x}'.format(max_num + 1)
+    max_num = "{:X}".format(max_num + 1)
     fav_id = "1:64:{}:0:0:0:0:0:0:0::{}\n#DESCRIPTION {}\n".format(max_num, response, response)
     s_type = BqServiceType.MARKER.name
     model, paths = view.get_selection().get_selected_rows()
     marker = (None, None, response, None, None, s_type, None, fav_id, None)
     itr = model.insert_before(model.get_iter(paths[0]), marker) if paths else model.insert(0, marker)
-    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, None, None,
-                               None, None, None, None, None, None, None, max_num, fav_id, None)
     bouquets[selected_bouquet].insert(model.get_path(itr)[0], fav_id)
+    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, *[None] * 9, max_num, fav_id, None)
 
 
 def edit_marker(view, bouquets, selected_bouquet, channels, parent_window):
@@ -60,50 +51,93 @@ def edit_marker(view, bouquets, selected_bouquet, channels, parent_window):
     old_ch = channels.pop(fav_id, None)
     new_fav_id = "{}::{}\n#DESCRIPTION {}\n".format(fav_id.split("::")[0], response, response)
     model.set(itr, {2: response, 7: new_fav_id})
-    new_srv = list(old_ch)
-    new_srv[3] = response
-    new_srv[17] = old_ch.data_id
-    new_srv[18] = new_fav_id
-    channels[new_fav_id] = Service(*new_srv)
+    channels[new_fav_id] = old_ch._replace(service=response, fav_id=new_fav_id)
     bq_services.pop(index)
     bq_services.insert(index, new_fav_id)
 
 
 # ***************** Movement *******************#
 
-def move_items(key, view):
-    """ Move items in  tree view """
+def move_items(key, view: Gtk.TreeView):
+    """ Move items in the tree view """
     selection = view.get_selection()
     model, paths = selection.get_selected_rows()
 
     if paths:
-        # for correct down move!
-        if key in (Gdk.KEY_Down, Gdk.KEY_Page_Down, Gdk.KEY_KP_Page_Down):
-            paths = reversed(paths)
+        mod_length = len(model)
+        cursor_path = view.get_cursor()[0]
+        max_path = Gtk.TreePath.new_from_indices((mod_length,))
+        min_path = Gtk.TreePath.new_from_indices((0,))
+        is_tree_store = False
 
-        for path in paths:
-            itr = model.get_iter(path)
-            if key == Gdk.KEY_Down:
-                next_itr = model.iter_next(itr)
-                if next_itr:
-                    model.move_after(itr, next_itr)
-            elif key == Gdk.KEY_Up:
-                prev_itr = model.iter_previous(itr)
-                if prev_itr:
-                    model.move_before(itr, prev_itr)
-            elif key == Gdk.KEY_Page_Up or key == Gdk.KEY_KP_Page_Up:
-                up_itr = model.get_iter(view.get_cursor()[0])
-                if up_itr:
-                    model.move_before(itr, up_itr)
-            elif key == Gdk.KEY_Page_Down or key == Gdk.KEY_KP_Page_Down:
-                down_itr = model.get_iter(view.get_cursor()[0])
-                if down_itr:
-                    model.move_after(itr, down_itr)
+        if type(model) is Gtk.TreeStore:
+            parent_paths = list(filter(lambda p: p.get_depth() == 1, paths))
+            if parent_paths:
+                paths = parent_paths
+                min_path = model.get_path(model.get_iter_first())
+                view.collapse_all()
+                if mod_length == len(paths):
+                    return
+            else:
+                if not is_some_level(paths):
+                    return
+                parent_itr = model.iter_parent(model.get_iter(paths[0]))
+                parent_index = model.get_path(parent_itr)
+                children_num = model.iter_n_children(parent_itr)
+                if key in (Gdk.KEY_Page_Down, Gdk.KEY_KP_Page_Down, Gdk.KEY_End):
+                    children_num -= 1
+                min_path = Gtk.TreePath.new_from_string("{}:{}".format(parent_index, 0))
+                max_path = Gtk.TreePath.new_from_string("{}:{}".format(parent_index, children_num))
+                is_tree_store = True
+
+        if key == Gdk.KEY_Up:
+            top_path = Gtk.TreePath(paths[0])
+            top_path.prev()
+            move_up(top_path, model, paths)
+        elif key == Gdk.KEY_Down:
+            down_path = Gtk.TreePath(paths[-1])
+            down_path.next()
+            if down_path < max_path:
+                move_down(down_path, model, paths)
+            else:
+                max_path.prev()
+                move_down(max_path, model, paths)
+        elif key in (Gdk.KEY_Page_Up, Gdk.KEY_KP_Page_Up, Gdk.KEY_Home):
+            move_up(min_path if is_tree_store else cursor_path, model, paths)
+        elif key in (Gdk.KEY_Page_Down, Gdk.KEY_KP_Page_Down, Gdk.KEY_End):
+            move_down(max_path if is_tree_store else cursor_path, model, paths)
 
 
-# ***************** Edit *******************#
+def move_up(top_path, model, paths):
+    top_iter = model.get_iter(top_path)
+    for path in paths:
+        itr = model.get_iter(path)
+        model.move_before(itr, top_iter)
+        top_path.next()
+        top_iter = model.get_iter(top_path)
 
-def edit(view, parent_window, target, fav_view=None, service_view=None, channels=None):
+
+def move_down(down_path, model, paths):
+    top_iter = model.get_iter(down_path)
+    for path in reversed(paths):
+        itr = model.get_iter(path)
+        model.move_after(itr, top_iter)
+        down_path.prev()
+        top_iter = model.get_iter(down_path)
+
+
+def is_some_level(paths):
+    for i in range(1, len(paths)):
+        prev = paths[i - 1]
+        current = paths[i]
+        if len(prev) != len(current) or (len(prev) == 2 and len(current) == 2 and prev[0] != current[0]):
+            return
+    return True
+
+
+# ***************** Rename *******************#
+
+def rename(view, parent_window, target, fav_view=None, service_view=None, channels=None):
     model, paths = view.get_selection().get_selected_rows()
     model = get_base_model(model)
 
@@ -148,9 +182,7 @@ def edit(view, parent_window, target, fav_view=None, service_view=None, channels
 
     old_ch = channels.get(f_id, None)
     if old_ch:
-        new_srv = list(old_ch)
-        new_srv[3] = channel_name
-        channels[f_id] = Service(*new_srv)
+        channels[f_id] = old_ch._replace(service=channel_name)
 
 
 # ***************** Flags *******************#
@@ -173,7 +205,7 @@ def set_flags(flag, services_view, fav_view, channels, blacklist):
 
     model = get_base_model(model)
 
-    if flag is FLAG.HIDE:
+    if flag is Flag.HIDE:
         if target is ViewTarget.SERVICES:
             set_hide(channels, model, paths)
         else:
@@ -181,7 +213,7 @@ def set_flags(flag, services_view, fav_view, channels, blacklist):
             srv_model = get_base_model(services_view.get_model())
             srv_paths = [row.path for row in srv_model if row[18] in fav_ids]
             set_hide(channels, srv_model, srv_paths)
-    elif flag is FLAG.LOCK:
+    elif flag is Flag.LOCK:
         set_lock(blacklist, channels, model, paths, target, services_model=get_base_model(services_view.get_model()))
 
     return True
@@ -196,14 +228,14 @@ def set_lock(blacklist, channels, model, paths, target, services_model):
     for path in paths:
         itr = model.get_iter(path)
         fav_id = model.get_value(itr, 18 if target is ViewTarget.SERVICES else 7)
-        ch = channels.get(fav_id, None)
-        if ch:
-            bq_id = to_bouquet_id(ch)
+        channel = channels.get(fav_id, None)
+        if channel:
+            bq_id = to_bouquet_id(channel)
             if not bq_id:
                 continue
             blacklist.discard(bq_id) if locked else blacklist.add(bq_id)
             model.set_value(itr, col_num, None if locked else LOCKED_ICON)
-            channels[fav_id] = Service(ch[0], ch[1], ch[2], ch[3], None if locked else LOCKED_ICON, *ch[5:])
+            channels[fav_id] = channel._replace(locked=None if locked else LOCKED_ICON)
             ids.append(fav_id)
 
     if target is ViewTarget.FAV and ids:
@@ -219,7 +251,7 @@ def set_hide(channels, model, paths):
     for path in paths:
         itr = model.get_iter(path)
         model.set_value(itr, col_num, None if hide else HIDE_ICON)
-        flags = model.get_value(itr, 0).split(",")
+        flags = [*model.get_value(itr, 0).split(",")]
         index, flag = None, None
         for i, fl in enumerate(flags):
             if fl.startswith("f:"):
@@ -230,18 +262,18 @@ def set_hide(channels, model, paths):
         value = int(flag[2:]) if flag else 0
 
         if not hide:
-            if value in FLAG.hide_values():
+            if Flag.is_hide(value):
                 continue  # skip if already hidden
-            value += FLAG.HIDE.value
+            value += Flag.HIDE.value
         else:
-            if value not in FLAG.hide_values():
+            if not Flag.is_hide(value):
                 continue  # skip if already allowed to show
-            value -= FLAG.HIDE.value
+            value -= Flag.HIDE.value
 
         if value == 0 and index is not None:
             del flags[index]
         else:
-            value = "f:{}".format(value) if value > 10 else "f:0{}".format(value)
+            value = "f:{:02d}".format(value)
             if index is not None:
                 flags[index] = value
             else:
@@ -249,9 +281,9 @@ def set_hide(channels, model, paths):
 
         model.set_value(itr, 0, (",".join(reversed(sorted(flags)))))
         fav_id = model.get_value(itr, 18)
-        ch = channels.get(fav_id, None)
-        if ch:
-            channels[fav_id] = Service(ch[0], ch[1], ch[2], ch[3], ch[4], None if hide else HIDE_ICON, *ch[6:])
+        channel = channels.get(fav_id, None)
+        if channel:
+            channels[fav_id] = channel._replace(hide=None if hide else HIDE_ICON)
 
 
 def has_locked_hide(model, paths, col_num):
@@ -418,29 +450,64 @@ def get_picon_pixbuf(path):
     return GdkPixbuf.Pixbuf.new_from_file_at_scale(filename=path, width=32, height=32, preserve_aspect_ratio=True)
 
 
-# ***************** Search *********************#
+# ***************** Bouquets *********************#
 
-def search(text, srv_view, fav_view, bqs_view, services, bouquets):
-    for view in srv_view, fav_view:
-        model = get_base_model(view.get_model())
-        selection = view.get_selection()
-        selection.unselect_all()
-        if not text:
-            continue
-        paths = []
-        text = text.upper()
-        for r in model:
-            if text in str(r[:]).upper():
-                path = r.path
-                selection.select_path(r.path)
-                paths.append(path)
+def gen_bouquets(view, bq_view, transient, gen_type, tv_types, profile, callback):
+    """ Auto-generate and append list of bouquets """
+    fav_id_index = 18
+    index = 6 if gen_type in (BqGenType.PACKAGE, BqGenType.EACH_PACKAGE) else 16 if gen_type in (
+        BqGenType.SAT, BqGenType.EACH_SAT) else 7
+    model, paths = view.get_selection().get_selected_rows()
+    model = get_base_model(model)
+    bq_type = BqType.BOUQUET.value if profile is Profile.NEUTRINO_MP else BqType.TV.value
+    if gen_type in (BqGenType.SAT, BqGenType.PACKAGE, BqGenType.TYPE):
+        if not is_only_one_item_selected(paths, transient):
+            return
+        service = Service(*model[paths][:])
+        if service.service_type not in tv_types:
+            bq_type = BqType.RADIO.value
+        append_bouquets(bq_type, bq_view, callback, fav_id_index, index, model,
+                        [service.package if gen_type is BqGenType.PACKAGE else
+                         service.pos if gen_type is BqGenType.SAT else service.service_type], profile)
+    else:
+        wait_dialog = WaitDialog(transient)
+        wait_dialog.show()
+        append_bouquets(bq_type, bq_view, callback, fav_id_index, index, model,
+                        {row[index] for row in model}, profile, wait_dialog)
 
-        if paths:
-            view.scroll_to_cell(paths[0], None)
+
+@run_task
+def append_bouquets(bq_type, bq_view, callback, fav_id_index, index, model, names, profile, wait_dialog=None):
+    bq_index = 0 if profile is Profile.ENIGMA_2 else 1
+    bq_view.expand_row(Gtk.TreePath(bq_index), 0)
+    bqs_model = bq_view.get_model()
+    bouquets_names = get_bouquets_names(bqs_model)
+
+    for pos, name in enumerate(sorted(names)):
+        if name not in bouquets_names:
+            services = [BouquetService(None, BqServiceType.DEFAULT, row[fav_id_index], 0)
+                        for row in model if row[index] == name]
+            callback(Bouquet(name=name, type=bq_type, services=services, locked=None, hidden=None),
+                     bqs_model.get_iter(bq_index))
+
+    if wait_dialog is not None:
+        wait_dialog.destroy()
+
+
+def get_bouquets_names(model):
+    """ Returns all current bouquets names """
+    bouquets_names = []
+    for row in model:
+        itr = row.iter
+        if model.iter_has_child(itr):
+            num_of_children = model.iter_n_children(itr)
+            for num in range(num_of_children):
+                child_itr = model.iter_nth_child(itr, num)
+                bouquets_names.append(model[child_itr][0])
+    return bouquets_names
 
 
 # ***************** Others *********************#
-
 
 def update_entry_data(entry, dialog, options):
     """ Updates value in text entry from chooser dialog """
@@ -456,6 +523,14 @@ def get_base_model(model):
     if type(model) is Gtk.TreeModelSort:
         return model.get_model().get_model()
     return model
+
+
+def append_text_to_tview(char, view):
+    """ Appending text and scrolling  to a given line in the text view. """
+    buf = view.get_buffer()
+    buf.insert_at_cursor(char)
+    insert = buf.get_insert()
+    view.scroll_to_mark(insert, 0.0, True, 0.0, 1.0)
 
 
 if __name__ == "__main__":

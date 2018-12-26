@@ -1,22 +1,22 @@
 import re
+import time
+import concurrent.futures
 from math import fabs
 
-from app.commons import run_idle
+from app.commons import run_idle, run_task
 from app.eparser import get_satellites, write_satellites, Satellite, Transponder
-from . import Gtk, Gdk, UI_RESOURCES_PATH
-from .dialogs import show_dialog, DialogType
-from .main_helper import move_items, scroll_to
+from app.tools.satellites import SatellitesParser, SatelliteSource
+from .search import SearchProvider
+from .uicommons import Gtk, Gdk, UI_RESOURCES_PATH, TEXT_DOMAIN, MOVE_KEYS
+from .dialogs import show_dialog, DialogType, WaitDialog
+from .main_helper import move_items, scroll_to, append_text_to_tview, get_base_model
 
 
 def show_satellites_dialog(transient, options):
-    dialog = SatellitesDialog(transient, options)
-    dialog.run()
-    dialog.destroy()
+    SatellitesDialog(transient, options).show()
 
 
 class SatellitesDialog:
-    __slots__ = ["_dialog", "_data_path", "_stores", "_options", "_sat_view"]
-
     _aggr = [None for x in range(9)]  # aggregate
 
     def __init__(self, transient, options):
@@ -26,6 +26,7 @@ class SatellitesDialog:
         handlers = {"on_open": self.on_open,
                     "on_remove": self.on_remove,
                     "on_save": self.on_save,
+                    "on_update": self.on_update,
                     "on_up": self.on_up,
                     "on_down": self.on_down,
                     "on_popup_menu": self.on_popup_menu,
@@ -38,9 +39,10 @@ class SatellitesDialog:
                     "on_quit": self.on_quit}
 
         builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
         builder.add_objects_from_file(UI_RESOURCES_PATH + "satellites_dialog.glade",
-                                      ("satellites_editor_dialog", "satellites_tree_store",
-                                       "popup_menu", "add_popup_menu", "add_menu_icon"))
+                                      ("satellites_editor_dialog", "satellites_tree_store", "popup_menu",
+                                       "add_popup_menu", "add_menu_icon", "receive_menu_icon"))
         builder.connect_signals(handlers)
         # Adding custom image for add_menu_tool_button
         add_menu_tool_button = builder.get_object("add_menu_tool_button")
@@ -50,6 +52,7 @@ class SatellitesDialog:
         self._dialog.set_transient_for(transient)
         self._dialog.get_content_area().set_border_width(0)  # The width of the border around the app dialog area!
         self._sat_view = builder.get_object("satellites_editor_tree_view")
+        self._wait_dialog = WaitDialog(self._dialog)
         # Setting the last size of the dialog window if it was saved
         window_size = self._options.get("sat_editor_window_size", None)
         if window_size:
@@ -61,10 +64,9 @@ class SatellitesDialog:
                         6: builder.get_object("mod_store")}
         self.on_satellites_list_load(self._sat_view.get_model())
 
-    def run(self):
+    @run_idle
+    def show(self):
         self._dialog.run()
-
-    def destroy(self):
         self._dialog.destroy()
 
     def on_resize(self, window):
@@ -73,7 +75,7 @@ class SatellitesDialog:
             self._options["sat_editor_window_size"] = window.get_size()
 
     def on_quit(self, item):
-        self.destroy()
+        self._dialog.destroy()
 
     def on_open(self, model):
         file_filter = Gtk.FileFilter()
@@ -123,15 +125,16 @@ class SatellitesDialog:
             self.on_transponder()
         elif key == Gdk.KEY_space:
             pass
-        elif ctrl and key in (Gdk.KEY_Up, Gdk.KEY_Page_Up, Gdk.KEY_KP_Page_Up):  # KEY_KP_Page_Up for laptop!
+        elif ctrl and key in MOVE_KEYS:
             move_items(key, self._sat_view)
-        elif ctrl and key in (Gdk.KEY_Down, Gdk.KEY_Page_Down, Gdk.KEY_KP_Page_Down):
-            move_items(key, self._sat_view)
+        elif key == Gdk.KEY_Left or key == Gdk.KEY_Right:
+            view.do_unselect_all(view)
 
     @run_idle
     def on_satellites_list_load(self, model):
         """ Load satellites data into model """
         try:
+            self._wait_dialog.show()
             satellites = get_satellites(self._data_path)
         except FileNotFoundError as e:
             show_dialog(DialogType.ERROR, self._dialog, getattr(e, "message", str(e)) +
@@ -139,14 +142,13 @@ class SatellitesDialog:
         else:
             model.clear()
             self.append_data(model, satellites)
+        finally:
+            self._wait_dialog.hide()
 
     @run_idle
     def append_data(self, model, satellites):
-        for name, flags, pos, transponders in satellites:
-            parent = model.append(None, [name, None, None, None, None, None, None, None, None, None, flags, pos])
-            for tr in transponders:
-                model.append(parent, ["Transponder:", tr.frequency, tr.symbol_rate, tr.polarization, tr.fec_inner,
-                                      tr.system, tr.modulation, tr.pls_mode, tr.pls_code, tr.is_id, None, None])
+        for sat in satellites:
+            append_satellite(model, sat)
 
     def on_add(self, view):
         """ Common adding """
@@ -186,8 +188,7 @@ class SatellitesDialog:
                 model.set(edited_itr, {0: sat.name, 10: sat.flags, 11: sat.position})
             else:
                 index = self.get_sat_position_index(sat.position, model)
-                model.insert(None, index,
-                             [sat.name, None, None, None, None, None, None, None, None, None, sat.flags, sat.position])
+                model.insert(None, index, [sat.name, *self._aggr, sat.flags, sat.position])
                 scroll_to(index, view)
 
     def on_transponder(self, transponder=None, edited_itr=None):
@@ -212,8 +213,7 @@ class SatellitesDialog:
                                        4: tr.fec_inner, 5: tr.system, 6: tr.modulation,
                                        7: tr.pls_mode, 8: tr.pls_code, 9: tr.is_id})
             else:
-                row = ["Transponder:", tr.frequency, tr.symbol_rate, tr.polarization, tr.fec_inner, tr.system,
-                       tr.modulation, tr.pls_mode, tr.pls_code, tr.is_id, None, None]
+                row = ["Transponder:", *tr, None, None]
                 model, paths = view.get_selection().get_selected_rows()
                 itr = model.get_iter(paths[0])
                 view.expand_row(paths[0], 0)
@@ -251,9 +251,7 @@ class SatellitesDialog:
         returns selected path or None
         """
         model, paths = view.get_selection().get_selected_rows()
-        paths_count = len(paths)
-
-        if paths_count > 1:
+        if len(paths) > 1:
             show_dialog(DialogType.ERROR, self._dialog, message)
             return
 
@@ -263,9 +261,8 @@ class SatellitesDialog:
     def on_remove(view):
         selection = view.get_selection()
         model, paths = selection.get_selected_rows()
-        itrs = [model.get_iter(path) for path in paths]
 
-        for itr in itrs:
+        for itr in [model.get_iter(path) for path in paths]:
             model.remove(itr)
 
     def on_save(self, view):
@@ -276,6 +273,11 @@ class SatellitesDialog:
         satellites = []
         model.foreach(self.parse_data, satellites)
         write_satellites(satellites, self._data_path)
+
+    def on_update(self, item):
+        dialog = SatellitesUpdateDialog(self._dialog, self._sat_view.get_model())
+        dialog.run()
+        dialog.destroy()
 
     @staticmethod
     def parse_data(model, path, itr, sats):
@@ -299,6 +301,8 @@ class SatellitesDialog:
             menu.popup(None, None, None, None, event.button, event.time)
 
 
+# ***************** Transponder dialog *******************#
+
 class TransponderDialog:
     """ Shows dialog for adding or edit transponder """
 
@@ -307,10 +311,9 @@ class TransponderDialog:
         handlers = {"on_entry_changed": self.on_entry_changed}
 
         builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
         builder.add_objects_from_file(UI_RESOURCES_PATH + "satellites_dialog.glade",
-                                      ("transponder_dialog",
-                                       "pol_store", "fec_store",
-                                       "mod_store", "system_store",
+                                      ("transponder_dialog", "pol_store", "fec_store", "mod_store", "system_store",
                                        "pls_mode_store"))
         builder.connect_signals(handlers)
 
@@ -385,11 +388,14 @@ class TransponderDialog:
         return True
 
 
+# ***************** Satellite dialog *******************#
+
 class SatelliteDialog:
     """ Shows dialog for adding or edit satellite """
 
     def __init__(self, transient, satellite: Satellite = None):
         builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
         builder.add_objects_from_file(UI_RESOURCES_PATH + "satellites_dialog.glade",
                                       ("satellite_dialog", "side_store", "pos_adjustment"))
 
@@ -423,6 +429,241 @@ class SatelliteDialog:
         pos = "{}{}{}".format("-" if side == 1 else "", *str(pos).split("."))
 
         return Satellite(name=name, flags="0", position=pos, transponders=None)
+
+
+# ***************** Satellite update dialog *******************#
+
+class SatellitesUpdateDialog:
+    """ Dialog for update satellites over internet """
+
+    def __init__(self, transient, main_model):
+        handlers = {"on_update_satellites_list": self.on_update_satellites_list,
+                    "on_receive_satellites_list": self.on_receive_satellites_list,
+                    "on_cancel_receive": self.on_cancel_receive,
+                    "on_selected_toggled": self.on_selected_toggled,
+                    "on_info_bar_close": self.on_info_bar_close,
+                    "on_filter_toggled": self.on_filter_toggled,
+                    "on_find_toggled": self.on_find_toggled,
+                    "on_filter": self.on_filter,
+                    "on_search": self.on_search,
+                    "on_search_down": self.on_search_down,
+                    "on_search_up": self.on_search_up,
+                    "on_quit": self.on_quit}
+
+        builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
+        builder.add_objects_from_file(UI_RESOURCES_PATH + "satellites_dialog.glade",
+                                      ("satellites_update_dialog", "update_source_store", "update_sat_list_store",
+                                       "update_sat_list_model_filter", "update_sat_list_model_sort", "side_store",
+                                       "pos_adjustment", "pos_adjustment2"))
+        builder.connect_signals(handlers)
+
+        self._dialog = builder.get_object("satellites_update_dialog")
+        self._dialog.set_transient_for(transient)
+        self._main_model = main_model
+        # self._dialog.get_content_area().set_border_width(0)
+        self._sat_view = builder.get_object("sat_update_tree_view")
+        self._source_box = builder.get_object("source_combo_box")
+        self._sat_update_expander = builder.get_object("sat_update_expander")
+        self._text_view = builder.get_object("text_view")
+        self._receive_button = builder.get_object("receive_sat_list_tool_button")
+        self._sat_update_info_bar = builder.get_object("sat_update_info_bar")
+        self._info_bar_message_label = builder.get_object("info_bar_message_label")
+        # Filter
+        self._filter_info_bar = builder.get_object("sat_update_filter_info_bar")
+        self._from_pos_button = builder.get_object("from_pos_button")
+        self._to_pos_button = builder.get_object("to_pos_button")
+        self._filter_from_combo_box = builder.get_object("filter_from_combo_box")
+        self._filter_to_combo_box = builder.get_object("filter_to_combo_box")
+        self._filter_model = builder.get_object("update_sat_list_model_filter")
+        self._filter_model.set_visible_func(self.filter_function)
+        self._filter_positions = (0, 0)
+        # Search
+        self._search_info_bar = builder.get_object("sat_update_search_info_bar")
+        self._search_provider = SearchProvider((self._sat_view,),
+                                               builder.get_object("sat_update_search_down_button"),
+                                               builder.get_object("sat_update_search_up_button"))
+
+        self._download_task = False
+        self._parser = None
+
+    def run(self):
+        if self._dialog.run() == Gtk.ResponseType.CANCEL:
+            self._download_task = False
+            return
+
+    def destroy(self):
+        self._dialog.destroy()
+
+    def on_update_satellites_list(self, item):
+        if self._download_task:
+            show_dialog(DialogType.ERROR, self._dialog, "The task is already running!")
+            return
+
+        model = get_base_model(self._sat_view.get_model())
+        model.clear()
+        self._download_task = True
+        src = self._source_box.get_active()
+        if not self._parser:
+            self._parser = SatellitesParser()
+
+        self.get_sat_list(src, self.append_satellites)
+
+    @run_task
+    def get_sat_list(self, src, callback):
+        sats = self._parser.get_satellites_list(SatelliteSource.FLYSAT if src == 0 else SatelliteSource.LYNGSAT)
+        if sats:
+            callback(sats)
+        self._download_task = False
+
+    @run_idle
+    def append_satellites(self, sats):
+        model = get_base_model(self._sat_view.get_model())
+        for sat in sats:
+            model.append(sat)
+
+    @run_task
+    def on_receive_satellites_list(self, item):
+        if self._download_task:
+            show_dialog(DialogType.ERROR, self._dialog, "The task is already running!")
+            return
+        self.receive_satellites()
+
+    @run_task
+    def receive_satellites(self):
+        self._download_task = True
+        self._sat_update_expander.set_expanded(True)
+        self._text_view.get_buffer().set_text("", 0)
+        model = self._sat_view.get_model()
+        start = time.time()
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+            text = "Processing: {}\n"
+            sats = []
+            appender = self.append_output()
+            next(appender)
+            futures = {executor.submit(self._parser.get_satellite, sat[:-1]): sat for sat in [r for r in model if r[4]]}
+            for future in concurrent.futures.as_completed(futures):
+                if not self._download_task:
+                    executor.shutdown()
+                    appender.send("\nCanceled\n")
+                    appender.close()
+                    return
+                data = future.result()
+                appender.send(text.format(data[0]))
+                sats.append(data)
+
+            appender.send("-" * 75 + "\n")
+            appender.send("Consumed : {:0.0f}s, {} satellites received.".format(start - time.time(), len(sats)))
+            appender.close()
+            # self.show_info_message(message, Gtk.MessageType.INFO)
+            sats = {s[2]: s for s in sats}  # key = position, v = satellite
+
+            for row in self._main_model:
+                pos = row[-1]
+                if pos in sats:
+                    sat = sats.pop(pos)
+                    itr = row.iter
+                    self.update_satellite(itr, row, sat)
+
+            for sat in sats.values():
+                append_satellite(self._main_model, sat)
+
+            self._download_task = False
+
+    @run_idle
+    def update_satellite(self, itr, row, sat):
+        if self._main_model.iter_has_child(itr):
+            children = row.iterchildren()
+            for ch in children:
+                self._main_model.remove(ch.iter)
+
+        for tr in sat[3]:
+            self._main_model.append(itr, ["Transponder:", *tr, None, None])
+
+    def append_output(self):
+        @run_idle
+        def append(t):
+            append_text_to_tview(t, self._text_view)
+
+        while True:
+            text = yield
+            append(text)
+
+    @run_idle
+    def on_cancel_receive(self, item=None):
+        self._download_task = False
+
+    def on_selected_toggled(self, toggle, path):
+        s_model = self._sat_view.get_model()
+        itr = self._filter_model.convert_iter_to_child_iter(s_model.convert_iter_to_child_iter(s_model.get_iter(path)))
+        self._filter_model.get_model().set_value(itr, 4, not toggle.get_active())
+        self.update_receive_button_state(self._filter_model)
+
+    @run_idle
+    def update_receive_button_state(self, model):
+        self._receive_button.set_sensitive((any(r[4] for r in model)))
+
+    @run_idle
+    def show_info_message(self, text, message_type):
+        self._sat_update_info_bar.set_visible(True)
+        self._sat_update_info_bar.set_message_type(message_type)
+        self._info_bar_message_label.set_text(text)
+
+    def on_info_bar_close(self, bar=None, resp=None):
+        self._sat_update_info_bar.set_visible(False)
+
+    def on_find_toggled(self, button: Gtk.ToggleToolButton):
+        self._search_info_bar.set_visible(button.get_active())
+
+    def on_filter_toggled(self, button: Gtk.ToggleToolButton):
+        self._filter_info_bar.set_visible(button.get_active())
+
+    @run_idle
+    def on_filter(self, item):
+        self._filter_positions = self.get_positions()
+        self._filter_model.refilter()
+
+    def filter_function(self, model, iter, data):
+        if self._filter_model is None or self._filter_model == "None":
+            return True
+
+        from_pos, to_pos = self._filter_positions
+        if from_pos == 0 and to_pos == 0:
+            return True
+
+        if from_pos > to_pos:
+            from_pos, to_pos = to_pos, from_pos
+
+        return from_pos <= float(self._parser.get_position(model.get(iter, 1)[0])) <= to_pos
+
+    def get_positions(self):
+        from_pos = round(self._from_pos_button.get_value(), 1) * (-1 if self._filter_from_combo_box.get_active() else 1)
+        to_pos = round(self._to_pos_button.get_value(), 1) * (-1 if self._filter_to_combo_box.get_active() else 1)
+        return from_pos, to_pos
+
+    def on_search(self, entry):
+        self._search_provider.search(entry.get_text())
+
+    def on_search_down(self, item):
+        self._search_provider.on_search_down()
+
+    def on_search_up(self, item):
+        self._search_provider.on_search_up()
+
+    def on_quit(self):
+        self._download_task = False
+
+
+# ***************** Commons *******************#
+
+@run_idle
+def append_satellite(model, sat):
+    """ Common function for append satellite to the model """
+    name, flags, pos, transponders = sat
+    parent = model.append(None, [name, *(None,) * 9, flags, pos])
+    for transponder in transponders:
+        model.append(parent, ["Transponder:", *transponder, None, None])
 
 
 if __name__ == "__main__":

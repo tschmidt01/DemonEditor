@@ -1,6 +1,6 @@
 from app.commons import run_task
 from app.properties import Profile
-from .ecommons import Service, Satellite, Transponder, Bouquet, Bouquets
+from .ecommons import Service, Satellite, Transponder, Bouquet, Bouquets, is_transponder_valid
 from .enigma.blacklist import get_blacklist, write_blacklist
 from .enigma.bouquets import get_bouquets as get_enigma_bouquets, write_bouquets as write_enigma_bouquets, to_bouquet_id
 from .enigma.lamedb import get_services as get_enigma_services, write_services as write_enigma_services
@@ -10,17 +10,17 @@ from .neutrino.services import get_services as get_neutrino_services, write_serv
 from .satxml import get_satellites, write_satellites
 
 
-def get_services(data_path, profile):
+def get_services(data_path, profile, format_version):
     if profile is Profile.ENIGMA_2:
-        return get_enigma_services(data_path)
+        return get_enigma_services(data_path, format_version)
     elif profile is Profile.NEUTRINO_MP:
         return get_neutrino_services(data_path)
 
 
 @run_task
-def write_services(path, channels, profile):
+def write_services(path, channels, profile, format_version):
     if profile is Profile.ENIGMA_2:
-        write_enigma_services(path, channels)
+        write_enigma_services(path, channels, format_version)
     elif profile is Profile.NEUTRINO_MP:
         write_neutrino_services(path, channels)
 

@@ -1,29 +1,26 @@
 import re
-import shutil
 import subprocess
+import tempfile
 import time
 
-import os
 from gi.repository import GLib, GdkPixbuf
 
 from app.commons import run_idle, run_task
 from app.ftp import upload_data, DownloadDataType
-from app.picons.picons import PiconsParser, parse_providers, Provider
+from app.tools.picons import PiconsParser, parse_providers, Provider, convert_to
 from app.properties import Profile
-from . import Gtk, Gdk, UI_RESOURCES_PATH
-from .dialogs import show_dialog, DialogType
-from .main_helper import update_entry_data
+from .uicommons import Gtk, Gdk, UI_RESOURCES_PATH, TEXT_DOMAIN
+from .dialogs import show_dialog, DialogType, get_message
+from .main_helper import update_entry_data, append_text_to_tview
 
 
 class PiconsDialog:
     def __init__(self, transient, options, picon_ids, profile=Profile.ENIGMA_2):
         self._picon_ids = picon_ids
-        self._TMP_DIR = "temp/"
-        self._WGET_PATH = "ext_bins/wget"
+        self._TMP_DIR = tempfile.gettempdir() + "/"
         self._BASE_URL = "www.lyngsat.com/packages/"
         self._PATTERN = re.compile("^https://www\.lyngsat\.com/[\w-]+\.html$")
         self._current_process = None
-        self._picons_path = options.get("picons_dir_path", "")
         self._terminate = False
 
         handlers = {"on_receive": self.on_receive,
@@ -35,9 +32,12 @@ class PiconsDialog:
                     "on_picons_dir_open": self.on_picons_dir_open,
                     "on_selected_toggled": self.on_selected_toggled,
                     "on_url_changed": self.on_url_changed,
-                    "on_position_edited": self.on_position_edited}
+                    "on_position_edited": self.on_position_edited,
+                    "on_notebook_switch_page": self.on_notebook_switch_page,
+                    "on_convert": self.on_convert}
 
         builder = Gtk.Builder()
+        builder.set_translation_domain(TEXT_DOMAIN)
         builder.add_objects_from_file(UI_RESOURCES_PATH + "picons_dialog.glade",
                                       ("picons_dialog", "receive_image", "providers_list_store"))
         builder.connect_signals(handlers)
@@ -56,6 +56,10 @@ class PiconsDialog:
         self._message_label = builder.get_object("info_bar_message_label")
         self._load_providers_tool_button = builder.get_object("load_providers_tool_button")
         self._receive_tool_button = builder.get_object("receive_tool_button")
+        self._convert_tool_button = builder.get_object("convert_tool_button")
+        self._enigma2_path_button = builder.get_object("enigma2_path_button")
+        self._save_to_button = builder.get_object("save_to_button")
+        self._send_tool_button = builder.get_object("send_tool_button")
         self._enigma2_radio_button = builder.get_object("enigma2_radio_button")
         self._neutrino_mp_radio_button = builder.get_object("neutrino_mp_radio_button")
         self._resize_no_radio_button = builder.get_object("resize_no_radio_button")
@@ -66,13 +70,19 @@ class PiconsDialog:
         self._style_provider.load_from_path(UI_RESOURCES_PATH + "style.css")
         self._url_entry.get_style_context().add_provider_for_screen(Gdk.Screen.get_default(), self._style_provider,
                                                                     Gtk.STYLE_PROVIDER_PRIORITY_USER)
-
-        self._properties = options
+        self._properties = options.get(profile.value)
         self._profile = profile
-        self._ip_entry.set_text(options.get("host", ""))
-        self._picons_entry.set_text(options.get("picons_path", ""))
-        self._picons_path = options.get("picons_dir_path", "")
+        self._ip_entry.set_text(self._properties.get("host", ""))
+        self._picons_entry.set_text(self._properties.get("picons_path", ""))
+        self._picons_path = self._properties.get("picons_dir_path", "")
         self._picons_dir_entry.set_text(self._picons_path)
+        self._enigma2_picons_path = self._picons_path
+        if profile is Profile.NEUTRINO_MP:
+            self._enigma2_picons_path = options.get(Profile.ENIGMA_2.value).get("picons_dir_path", "")
+        if not len(self._picon_ids) and self._profile is Profile.ENIGMA_2:
+            message = get_message("To automatically set the identifiers for picons,\n"
+                                  "first load the required services list into the main application window.")
+            self.show_info_message(message, Gtk.MessageType.WARNING)
 
     def show(self):
         self._dialog.run()
@@ -82,18 +92,18 @@ class PiconsDialog:
     def on_load_providers(self, item):
         self._expander.set_expanded(True)
         url = self._url_entry.get_text()
-        os.makedirs(os.path.dirname(self._TMP_DIR), exist_ok=True)
-        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url],
+        self._current_process = subprocess.Popen(["wget", "-pkP", self._TMP_DIR, url],
                                                  stdout=subprocess.PIPE,
                                                  stderr=subprocess.PIPE,
                                                  universal_newlines=True)
-        self.append_providers(url)
-
-    @run_task
-    def append_providers(self, url):
+        GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
         model = self._providers_tree_view.get_model()
         model.clear()
-        self.write_to_buffer()
+        self.update_receive_button_state()
+        self.append_providers(url, model)
+
+    @run_task
+    def append_providers(self, url, model):
         self._current_process.wait()
         providers = parse_providers(self._TMP_DIR + url[url.find("w"):])
         if providers:
@@ -118,61 +128,54 @@ class PiconsDialog:
         self._terminate = False
         self._expander.set_expanded(True)
 
-        for prv in self.get_selected_providers():
+        providers = self.get_selected_providers()
+        for prv in providers:
+            if not prv[2] and prv[2][:-2].isdigit():
+                self.show_info_message(
+                    get_message("Specify the correct position value for the provider!"), Gtk.MessageType.ERROR)
+                return
+
+        for prv in providers:
             if self._terminate:
                 break
             self.process_provider(Provider(*prv))
 
     def process_provider(self, prv):
         url = prv.url
-        self.show_info_message("Please, wait...", Gtk.MessageType.INFO)
-        self._current_process = subprocess.Popen([self._WGET_PATH, "-pkP", self._TMP_DIR, url],
+        self.show_info_message(get_message("Please, wait..."), Gtk.MessageType.INFO)
+        self._current_process = subprocess.Popen(["wget", "-pkP", self._TMP_DIR, url],
                                                  stdout=subprocess.PIPE,
                                                  stderr=subprocess.PIPE,
                                                  universal_newlines=True)
-        self.write_to_buffer()
+        GLib.io_add_watch(self._current_process.stderr, GLib.IO_IN, self.write_to_buffer)
         self._current_process.wait()
         path = self._TMP_DIR + self._BASE_URL + url[url.rfind("/") + 1:]
         pos = "".join(c for c in prv.pos if c.isdigit())
         PiconsParser.parse(path, self._picons_path, self._TMP_DIR, prv.on_id, pos,
                            self._picon_ids, self.get_picons_format())
         self.resize(self._picons_path)
-        self.show_info_message("Done", Gtk.MessageType.INFO)
+        self.show_info_message(get_message("Done!"), Gtk.MessageType.INFO)
 
-    @run_task
-    def write_to_buffer(self):
-        """ Writing output from subprocess to text view. Works on Windows
-
-            Idea taken from here: https://www.endpoint.com/blog/2015/01/28/getting-realtime-output-using-python
-        """
-        while True:
-            out = self._current_process.stderr.readline()
-            if self._current_process.poll():
-                break
-            if out:
-                self.append_output(out)
+    def write_to_buffer(self, fd, condition):
+        if condition == GLib.IO_IN:
+            char = fd.read(1)
+            self.append_output(char)
+            return True
+        else:
+            return False
 
     @run_idle
     def append_output(self, char):
-        buf = self._text_view.get_buffer()
-        buf.insert_at_cursor(char)
-        self.scroll_to_end(buf)
-
-    def scroll_to_end(self, buf):
-        insert = buf.get_insert()
-        self._text_view.scroll_to_mark(insert, 0.0, True, 0.0, 1.0)
+        append_text_to_tview(char, self._text_view)
 
     def resize(self, path):
         if self._resize_no_radio_button.get_active():
             return
 
-        self.show_info_message("Resizing...", Gtk.MessageType.INFO)
-        command = "ext_bins/mogrify -resize {}! *.png".format(
+        self.show_info_message(get_message("Resizing..."), Gtk.MessageType.INFO)
+        command = "mogrify -resize {}! *.png".format(
             "320x240" if self._resize_220_132_radio_button.get_active() else "100x60").split()
-        self._current_process = subprocess.Popen(command,
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE,
-                                                 universal_newlines=True, cwd=path)
+        self._current_process = subprocess.Popen(command, universal_newlines=True, cwd=path)
         self._current_process.wait()
 
     @run_task
@@ -181,7 +184,6 @@ class PiconsDialog:
             self._terminate = True
             self._current_process.terminate()
             time.sleep(1)
-            shutil.rmtree(self._TMP_DIR)
 
     @run_idle
     def on_close(self, item):
@@ -192,7 +194,7 @@ class PiconsDialog:
         if show_dialog(DialogType.QUESTION, self._dialog) == Gtk.ResponseType.CANCEL:
             return
 
-        self.show_info_message("Please, wait...", Gtk.MessageType.INFO)
+        self.show_info_message(get_message("Please, wait..."), Gtk.MessageType.INFO)
         self.upload_picons()
 
     @run_task
@@ -204,7 +206,7 @@ class PiconsDialog:
         upload_data(properties=self._properties,
                     download_type=DownloadDataType.PICONS,
                     profile=self._profile,
-                    callback=lambda: self.show_info_message("Done!", Gtk.MessageType.INFO))
+                    callback=lambda: self.show_info_message(get_message("Done!"), Gtk.MessageType.INFO))
 
     def on_info_bar_close(self, bar=None, resp=None):
         self._info_bar.set_visible(False)
@@ -232,6 +234,34 @@ class PiconsDialog:
     def on_position_edited(self, render, path, value):
         model = self._providers_tree_view.get_model()
         model.set_value(model.get_iter(path), 2, value)
+
+    @run_idle
+    def on_notebook_switch_page(self, nb, box, tab_num):
+        self._load_providers_tool_button.set_visible(not tab_num)
+        self._receive_tool_button.set_visible(not tab_num)
+        self._convert_tool_button.set_visible(tab_num)
+        self._send_tool_button.set_sensitive(not tab_num)
+
+        if self._enigma2_path_button.get_filename() is None:
+            self._enigma2_path_button.set_current_folder(self._enigma2_picons_path)
+
+    @run_idle
+    def on_convert(self, item):
+        if show_dialog(DialogType.QUESTION, self._dialog) == Gtk.ResponseType.CANCEL:
+            return
+
+        picons_path = self._enigma2_path_button.get_filename()
+        save_path = self._save_to_button.get_filename()
+        if not picons_path or not save_path:
+            show_dialog(DialogType.ERROR, transient=self._dialog, text="Select paths!")
+            return
+
+        self._expander.set_expanded(True)
+        convert_to(src_path=picons_path,
+                   dest_path=save_path,
+                   profile=Profile.ENIGMA_2,
+                   callback=self.append_output,
+                   done_callback=lambda: self.show_info_message(get_message("Done!"), Gtk.MessageType.INFO))
 
     @run_idle
     def update_receive_button_state(self):

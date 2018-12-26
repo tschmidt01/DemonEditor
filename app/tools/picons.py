@@ -1,9 +1,12 @@
+import glob
 import os
+import re
 import shutil
+
 from collections import namedtuple
 from html.parser import HTMLParser
 
-from app.commons import log
+from app.commons import log, run_task
 from app.properties import Profile
 
 _ENIGMA2_PICON_KEY = "{:X}:{:X}:{:X}0000"
@@ -102,6 +105,8 @@ class PiconsParser(HTMLParser):
 class ProviderParser(HTMLParser):
     """ Parser for satellite html page. (https://www.lyngsat.com/*sat-name*.html) """
 
+    _POSITION_PATTERN = re.compile("at\s\d+\..*(?:E|W)']")
+
     def __init__(self, entities=False, separator=' '):
 
         HTMLParser.__init__(self)
@@ -116,7 +121,6 @@ class ProviderParser(HTMLParser):
         self._current_cell = []
         self.rows = []
         self._ids = set()
-        self._counter = 0
         self._positon = None
 
     def handle_starttag(self, tag, attrs):
@@ -149,11 +153,10 @@ class ProviderParser(HTMLParser):
         elif tag == 'tr':
             row = self._current_row
             # Satellite position
-            self._counter = self._counter + 1
-            if self._counter == 12:
-                pos = str(row)
-                pos = pos[pos.rfind("at") + 2:]
-                self._positon = "".join(c for c in pos if c.isalnum() or c == ".")
+            if not self._positon:
+                pos = re.findall(self._POSITION_PATTERN, str(row))
+                if pos:
+                    self._positon = "".join(c for c in str(pos) if c.isdigit() or c in ".EW")
 
             if len(row) == 12:
                 on_id, sep, tid = str(row[-2]).partition("-")
@@ -169,7 +172,6 @@ class ProviderParser(HTMLParser):
 
     def reset(self):
         super().reset()
-        self._counter = 0
 
 
 def parse_providers(open_path):
@@ -182,6 +184,24 @@ def parse_providers(open_path):
 
         if rows:
             return [Provider(logo=r[2], name=r[5], pos=r[0], url=r[6], on_id=r[-2], selected=True) for r in rows]
+
+
+@run_task
+def convert_to(src_path, dest_path, profile, callback, done_callback):
+    """ Converts names format of picons.
+
+        Copies resulting files from src to dest and writes state to callback.
+    """
+    pattern = "/*_0_0_0.png" if profile is Profile.ENIGMA_2 else "/*.png"
+    for file in glob.glob(src_path + pattern):
+        base_name = os.path.basename(file)
+        pic_data = base_name.rstrip(".png").split("_")
+        dest_file = _NEUTRINO_PICON_KEY.format(int(pic_data[4], 16), int(pic_data[5], 16), int(pic_data[3], 16))
+        dest = "{}/{}".format(dest_path, dest_file)
+        callback('Converting "{}" to "{}"\n'.format(base_name, dest_file))
+        shutil.copyfile(file, dest)
+
+    done_callback()
 
 
 if __name__ == "__main__":
