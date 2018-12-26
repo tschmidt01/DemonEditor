@@ -172,7 +172,8 @@ class IptvDialog:
                                            srv) if self._paths else self._model.insert(0, srv)
             self._model.set_value(itr, 1, IPTV_ICON)
             self._bouquet.insert(self._model.get_path(itr)[0], fav_id)
-            self._services[fav_id] = Service(None, None, IPTV_ICON, name, *aggr[0:3], s_type, *aggr, fav_id, None)
+            self._services[fav_id] = Service(None, None, IPTV_ICON, name, None, None, None, s_type,
+                                             None, None, None, None, None, None, None, None, None, None, fav_id, None)
 
     def is_data_correct(self):
         for elem in (self._srv_type_entry, self._sid_entry, self._tr_id_entry, self._net_id_entry,

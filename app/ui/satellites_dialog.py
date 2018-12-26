@@ -17,7 +17,6 @@ def show_satellites_dialog(transient, options):
 
 
 class SatellitesDialog:
-    _aggr = [None for x in range(9)]  # aggregate
 
     def __init__(self, transient, options):
         self._data_path = options.get("data_dir_path") + "satellites.xml"
@@ -188,7 +187,8 @@ class SatellitesDialog:
                 model.set(edited_itr, {0: sat.name, 10: sat.flags, 11: sat.position})
             else:
                 index = self.get_sat_position_index(sat.position, model)
-                model.insert(None, index, [sat.name, *self._aggr, sat.flags, sat.position])
+                model.insert(None, index, [sat.name, None, None, None, None, None, None,
+                                           None, None, None, sat.flags, sat.position])
                 scroll_to(index, view)
 
     def on_transponder(self, transponder=None, edited_itr=None):
@@ -213,7 +213,8 @@ class SatellitesDialog:
                                        4: tr.fec_inner, 5: tr.system, 6: tr.modulation,
                                        7: tr.pls_mode, 8: tr.pls_code, 9: tr.is_id})
             else:
-                row = ["Transponder:", *tr, None, None]
+                row = ["Transponder:", tr.frequency, tr.symbol_rate, tr.polarization, tr.fec_inner,
+                       tr.system, tr.modulation, tr.pls_mode, tr.pls_code, tr.is_id, None, None]
                 model, paths = view.get_selection().get_selected_rows()
                 itr = model.get_iter(paths[0])
                 view.expand_row(paths[0], 0)
@@ -579,7 +580,8 @@ class SatellitesUpdateDialog:
                 self._main_model.remove(ch.iter)
 
         for tr in sat[3]:
-            self._main_model.append(itr, ["Transponder:", *tr, None, None])
+            self._main_model.append(itr, ["Transponder:", tr.frequency, tr.symbol_rate, tr.polarization, tr.fec_inner,
+                                          tr.system, tr.modulation, tr.pls_mode, tr.pls_code, tr.is_id, None, None])
 
     def append_output(self):
         @run_idle
@@ -661,9 +663,10 @@ class SatellitesUpdateDialog:
 def append_satellite(model, sat):
     """ Common function for append satellite to the model """
     name, flags, pos, transponders = sat
-    parent = model.append(None, [name, *(None,) * 9, flags, pos])
-    for transponder in transponders:
-        model.append(parent, ["Transponder:", *transponder, None, None])
+    parent = model.append(None, [name, None, None, None, None, None, None, None, None, None, flags, pos])
+    for tr in transponders:
+        model.append(parent, ["Transponder:", tr.frequency, tr.symbol_rate, tr.polarization, tr.fec_inner, tr.system,
+                              tr.modulation, tr.pls_mode, tr.pls_code, tr.is_id, None, None])
 
 
 if __name__ == "__main__":

@@ -256,7 +256,10 @@ class MainAppWindow:
     def on_copy(self, view):
         model, paths = view.get_selection().get_selected_rows()
         itrs = [model.get_iter(path) for path in paths]
-        rows = [(0, *model.get(in_itr, 2, 3, 4, 5, 7, 16, 18, 8)) for in_itr in itrs]
+        rows = []
+        for in_itr in itrs:
+            v1, v2, v3, v4, v5, v6, v7, v8 = model.get(in_itr, 2, 3, 4, 5, 7, 16, 18, 8)
+            rows.append((0,  v1, v2, v3, v4, v5, v6, v7, v8))
         self._rows_buffer.extend(rows)
 
     def on_paste(self, view):
@@ -575,14 +578,14 @@ class MainAppWindow:
         name, bt_type, locked, hidden = bq.name, bq.type, bq.locked, bq.hidden
         self._bouquets_model.append(parent, [name, locked, hidden, bt_type])
         services = []
-        agr = [None] * 9
         for srv in bq.services:
             fav_id = srv.data
             # IPTV and MARKER services
             s_type = srv.type
             if s_type is BqServiceType.MARKER or s_type is BqServiceType.IPTV:
                 icon = IPTV_ICON if s_type is BqServiceType.IPTV else None
-                srv = Service(*agr[0:2], icon, srv.name, *agr[0:3], s_type.name, *agr, srv.num, fav_id, None)
+                srv = Service(None, None, icon, srv.name, None, None, None, s_type.name, None, None, None, None, None,
+                              None, None, None, None, srv.num, fav_id, None)
                 self._services[fav_id] = srv
             services.append(fav_id)
         self._bouquets["{}:{}".format(name, bt_type)] = services
@@ -638,7 +641,7 @@ class MainAppWindow:
                     bq = Bouquet(bq_name, bq_type, [self._services.get(f_id, None) for f_id in favs], locked, hidden)
                     bqs.append(bq)
             if len(b_path) == 1:
-                bouquets.append(Bouquets(*model.get(itr, 0, 3), bqs if bqs else []))
+                bouquets.append(Bouquets(model.get_value(itr, 0), model.get_value(itr, 3), bqs if bqs else []))
 
         profile = Profile(self._profile)
         # Getting bouquets
@@ -728,7 +731,9 @@ class MainAppWindow:
 
     def delete_selection(self, view, *args):
         """ Used for clear selection on given view(s) """
-        for v in [view, *args]:
+        views = [view, ]
+        views.extend(args)
+        for v in views:
             v.get_selection().unselect_all()
 
     @run_idle
