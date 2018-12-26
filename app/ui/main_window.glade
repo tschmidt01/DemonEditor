@@ -108,7 +108,7 @@ Author: Dmitriy Yefremov
   <object class="GtkImage" id="image1">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="icon_name">emblem-downloads</property>
+    <property name="icon_name">insert-link</property>
   </object>
   <object class="GtkImage" id="image10">
     <property name="visible">True</property>
@@ -799,7 +799,7 @@ Author: Dmitriy Yefremov
                 <property name="tooltip_text" translatable="yes">Save</property>
                 <property name="label" translatable="yes">Save</property>
                 <property name="use_underline">True</property>
-                <property name="stock_id">gtk-floppy</property>
+                <property name="stock_id">gtk-save</property>
                 <signal name="clicked" handler="on_data_save" swapped="no"/>
               </object>
               <packing>
@@ -1143,7 +1143,7 @@ Author: Dmitriy Yefremov
                 <property name="opacity">0.93999999999999995</property>
                 <property name="label" translatable="yes">IPTV</property>
                 <property name="use_underline">True</property>
-                <property name="icon_name">emblem-downloads</property>
+                <property name="icon_name">insert-link</property>
                 <signal name="clicked" handler="on_import_m3u" swapped="no"/>
               </object>
               <packing>
@@ -1195,15 +1195,6 @@ Author: Dmitriy Yefremov
                 <property name="can_focus">False</property>
                 <property name="spacing">6</property>
                 <property name="layout_style">end</property>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -1639,15 +1630,6 @@ Author: Dmitriy Yefremov
                         <property name="can_focus">False</property>
                         <property name="spacing">6</property>
                         <property name="layout_style">end</property>
-                        <child>
-                          <placeholder/>
-                        </child>
-                        <child>
-                          <placeholder/>
-                        </child>
-                        <child>
-                          <placeholder/>
-                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -1674,21 +1656,12 @@ Author: Dmitriy Yefremov
                             <property name="position">0</property>
                           </packing>
                         </child>
-                        <child>
-                          <placeholder/>
-                        </child>
-                        <child>
-                          <placeholder/>
-                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">0</property>
                       </packing>
-                    </child>
-                    <child>
-                      <placeholder/>
                     </child>
                   </object>
                   <packing>
@@ -1699,7 +1672,7 @@ Author: Dmitriy Yefremov
                 </child>
                 <child>
                   <object class="GtkBox" id="services_bar_box">
-                    <property name="height_request">20</property>
+                    <property name="height_request">24</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="resize_mode">queue</property>
@@ -2002,7 +1975,7 @@ Author: Dmitriy Yefremov
                     </child>
                     <child>
                       <object class="GtkBox" id="fav_bar_box">
-                        <property name="height_request">20</property>
+                        <property name="height_request">24</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="spacing">2</property>
@@ -2141,7 +2114,7 @@ Author: Dmitriy Yefremov
                     </child>
                     <child>
                       <object class="GtkBox" id="bouquet_bar_box">
-                        <property name="height_request">20</property>
+                        <property name="height_request">24</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="spacing">2</property>
@@ -2263,7 +2236,7 @@ Author: Dmitriy Yefremov
               <object class="GtkLabel" id="ver_label">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Ver. 0.2.3 Pre-alpha</property>
+                <property name="label" translatable="yes">Ver. 0.2.5 Pre-alpha</property>
                 <property name="xalign">0.94999998807907104</property>
               </object>
               <packing>
