@@ -1173,7 +1173,7 @@ Author: Dmitriy Yefremov
                         <property name="width_request">200</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
-                        <property name="primary_icon_name">edit-find-symbolic</property>
+                        <property name="primary_icon_name">edit-find</property>
                         <property name="primary_icon_activatable">False</property>
                         <property name="primary_icon_sensitive">False</property>
                         <signal name="search-changed" handler="on_search" swapped="no"/>
@@ -1737,7 +1737,7 @@ Author: Dmitriy Yefremov
                       <object class="GtkImage" id="tv_image">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="icon_name">tv-symbolic</property>
+                        <property name="icon_name">display</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -1763,7 +1763,7 @@ Author: Dmitriy Yefremov
                       <object class="GtkImage" id="radio_image">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="icon_name">network-wireless-symbolic</property>
+                        <property name="icon_name">network-wireless</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>

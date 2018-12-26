@@ -1325,9 +1325,6 @@ Author: Dmitriy Yefremov
                     <property name="top_attach">3</property>
                   </packing>
                 </child>
-                <style>
-                  <class name="primary-toolbar"/>
-                </style>
               </object>
             </child>
             <child type="tab">
@@ -1440,9 +1437,6 @@ Author: Dmitriy Yefremov
                     <property name="top_attach">1</property>
                   </packing>
                 </child>
-                <style>
-                  <class name="primary-toolbar"/>
-                </style>
               </object>
               <packing>
                 <property name="position">1</property>

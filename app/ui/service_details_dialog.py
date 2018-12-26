@@ -379,8 +379,6 @@ class ServiceDetailsDialog:
                 break
 
     def on_new(self):
-        service = self.get_service(*self.get_srv_data(), self.get_transponder_data())
-        print(service)
         show_dialog(DialogType.ERROR, transient=self._dialog, text="Not implemented yet!")
 
     def get_service(self, fav_id, data_id, transponder):
