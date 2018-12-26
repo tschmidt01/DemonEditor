@@ -683,7 +683,6 @@ class MainAppWindow:
             self.delete_selection(self._services_view)
             self.update_bouquet_services(model, path)
 
-    @run_idle
     def update_bouquet_services(self, model, path, bq_key=None):
         """ Updates list of bouquet services """
         tree_iter = None
