@@ -589,7 +589,6 @@ class ServiceDetailsDialog:
         self._builder.get_object("tr_box").set_visible(False)
         self._builder.get_object("tr_separator").set_visible(False)
         self._builder.get_object("srv_separator").set_visible(False)
-        self._reference_entry.set_max_width_chars(22)
 
 
 class TransponderServicesDialog:
