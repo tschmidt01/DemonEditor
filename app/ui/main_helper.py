@@ -34,7 +34,8 @@ def insert_marker(view, bouquets, selected_bouquet, channels, parent_window):
     marker = (None, None, response, None, None, s_type, None, fav_id, None)
     itr = model.insert_before(model.get_iter(paths[0]), marker) if paths else model.insert(0, marker)
     bouquets[selected_bouquet].insert(model.get_path(itr)[0], fav_id)
-    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, *[None] * 9, max_num, fav_id, None)
+    channels[fav_id] = Service(None, None, None, response, None, None, None, s_type, None, None,
+                               None, None, None, None, None, None, None, max_num, fav_id, None)
 
 
 def edit_marker(view, bouquets, selected_bouquet, channels, parent_window):
@@ -251,7 +252,7 @@ def set_hide(channels, model, paths):
     for path in paths:
         itr = model.get_iter(path)
         model.set_value(itr, col_num, None if hide else HIDE_ICON)
-        flags = [*model.get_value(itr, 0).split(",")]
+        flags = model.get_value(itr, 0).split(",")
         index, flag = None, None
         for i, fl in enumerate(flags):
             if fl.startswith("f:"):

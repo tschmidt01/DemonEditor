@@ -17,7 +17,6 @@ class StreamType(Enum):
 
 def parse_m3u(path, profile):
     with open(path) as file:
-        aggr = [None] * 10
         channels = []
         count = 0
         name = None
@@ -33,7 +32,8 @@ def parse_m3u(path, profile):
                                                           line.strip().replace(":", "%3a"), name, name, None)
                 elif profile is Profile.NEUTRINO_MP:
                     fav_id = NEUTRINO_FAV_ID_FORMAT.format(line.strip(), "", 0, None, None, None, None, "", "", 1)
-                srv = Service(None, None, IPTV_ICON, name, *aggr[0:3], BqServiceType.IPTV.name, *aggr, fav_id, None)
+                srv = Service(None, None, IPTV_ICON, name, None, None, None, BqServiceType.IPTV.name, None,
+                              None, None, None, None, None, None, None, None, None, fav_id, None)
                 channels.append(srv)
 
     return channels
