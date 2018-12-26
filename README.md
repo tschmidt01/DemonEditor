@@ -1,8 +1,13 @@
 # DemonEditor
 
-## Experimental version of Enigma2 channel and satellites list editor for GNU/Linux and MS Windows.                                                                          
+## Experimental version of Enigma2 channel and satellites list editor for GNU/Linux and MS Windows.
 Experimental support of Neutrino-MP or others on the same basis (BPanther, etc).                                                   
 Focused on the convenience of working in lists from the keyboard. The mouse is also fully supported (Drag and Drop etc)
+
+## Note
+This version is recommended only for users of fairly old systems or those who wish to try running this program on MS Windows.
+The functionality and performance of this version may be very different from the main version!                           
+**Not all features are supported and fully tested!**                                                                    
 
 ### Keyboard shortcuts:                                                                                                                
 **Ctrl + X, C, V, Up, Down, PageUp, PageDown, Home, End, S, T, E, L, H, Space; Insert, Delete, F2, Enter, P.**                                                    
@@ -27,7 +32,7 @@ Clipboard is **"rubber"**. There is an accumulation before the insertion!
 * Preview (playing)  IPTV or other streams directly from the bouquet list(should be installed VLC).     
                                          
 ### Minimum requirements:
-Python >= 3.4 and GTK+ >= 3.10 with PyGObject bindings.
+Python >= **3.4** and GTK+ >= **3.10** with PyGObject bindings.
 
 ### Launching                                                                                                           
 To start the program, in most cases it is enough to download the archive, unpack and run it by                                                   
@@ -36,11 +41,6 @@ with the command: ```./start.py```
 Extra folders can be deleted, excluding the *app* folder and root files like *DemonEditor.desktop* and *start.py*!      
                                                                                                                                                                   
 ### Note.
-To create a simple **debian package**, you can use the *build-deb.sh.*                                                         
-
-Tests only with openATV image and Formuler F1 receiver in my preferred Linux distros                                    
-(latest Linux Mint 18.* and 19 MATE 64-bit)!                                                                                                                                                       
-
 **Terrestrial(DVB-T/T2) and cable channels are supported(Enigma2 only) with limitation!** 
 
 Main supported **lamedb** format is version **4**. Versions **3** and **5** has only experimental support!                                                                                                                                          
